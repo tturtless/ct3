@@ -277,6 +277,20 @@
 
     <h2 style="margin-top:20px;">Buttons</h2>
     <div class="buttons-grid" id="buttonGrid"></div>
+
+    <h2 style="margin-top:20px;">Switch Channels <span style="font-weight:400;text-transform:none;letter-spacing:0;">(use this if ignition / net deploy light up above as buttons, not axes)</span></h2>
+    <table>
+      <tbody>
+        <tr>
+          <td class="mono" style="width:110px;">Ignition</td>
+          <td><select id="ignBtnSel" class="mono"><option value="">-- use axis override above --</option></select></td>
+        </tr>
+        <tr>
+          <td class="mono">Net Deploy</td>
+          <td><select id="netBtnSel" class="mono"><option value="">-- use axis override above --</option></select></td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 </main>
 
@@ -344,6 +358,8 @@
   const statusEl = document.getElementById('status');
   const axisTableBody = document.getElementById('axisTable');
   const buttonGrid = document.getElementById('buttonGrid');
+  const ignBtnSel = document.getElementById('ignBtnSel');
+  const netBtnSel = document.getElementById('netBtnSel');
   const rRoll = document.getElementById('rRoll');
   const rPitch = document.getElementById('rPitch');
   const rYaw = document.getElementById('rYaw');
@@ -382,9 +398,16 @@
     return Math.max(0, Math.min(1, n));
   }
   // switch channels (ignition / net deploy) reuse the throttle-style 0..1
-  // normalization and are considered "on" past the halfway point
+  // normalization and are considered "on" past the halfway point — unless
+  // the channel is bound to a digital button instead of an axis, in which
+  // case we just read that button's pressed state directly
   function computeSwitch(gp, ch){
     if (!ch) return false;
+    if (ch.button !== undefined) {
+      const b = gp.buttons[ch.button];
+      if (!b) return false;
+      return b.pressed || b.value > 0.5;
+    }
     return computeThrottle(gp, ch) >= 0.5;
   }
   // expose for the 3D flight sim
@@ -484,7 +507,11 @@
       document.querySelectorAll('#axisTable select').forEach(s => {
         if (s !== sel && s.value === use && use) s.value = '';
       });
-      if (use === 'throttle' || use === 'ignition' || use === 'netDeploy') cfg[use] = { axis: i, center: -1, delta: 2 };
+      if (use === 'throttle' || use === 'ignition' || use === 'netDeploy') {
+        cfg[use] = { axis: i, center: -1, delta: 2 };
+        if (use === 'ignition' && ignBtnSel) ignBtnSel.value = '';
+        if (use === 'netDeploy' && netBtnSel) netBtnSel.value = '';
+      }
       else if (use) cfg[use] = { axis: i, center: 0, delta: 1 };
       window.__fpvCfg = cfg;
     });
@@ -499,7 +526,37 @@
       d.textContent = i;
       buttonGrid.appendChild(d);
     }
+    // rebuild the ignition/net-deploy button-select options to match
+    for (const [sel, ch] of [[ignBtnSel,'ignition'], [netBtnSel,'netDeploy']]){
+      if (!sel) continue;
+      const current = sel.value;
+      sel.innerHTML = '<option value="">-- use axis override above --</option>';
+      for (let i=0;i<n;i++){
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = 'Button ' + i;
+        sel.appendChild(opt);
+      }
+      // restore selection: prefer the live cfg assignment, fall back to whatever was showing
+      const cfgBtn = cfg[ch] && cfg[ch].button;
+      sel.value = (cfgBtn !== undefined) ? String(cfgBtn) : current;
+    }
   }
+
+  function onSwitchButtonSelectChange(ch, sel){
+    const val = sel.value;
+    if (val === '') {
+      // reverted to axis mode — fall back to the factory default axis for this channel
+      cfg[ch] = (ch === 'ignition') ? { axis: 7, center: -1, delta: 2 } : { axis: 6, center: -1, delta: 2 };
+    } else {
+      cfg[ch] = { button: parseInt(val, 10) };
+      // this channel is now button-based, so clear any axis-table dropdown pointing at it
+      document.querySelectorAll('#axisTable select').forEach(s => { if (s.value === ch) s.value = ''; });
+    }
+    window.__fpvCfg = cfg;
+  }
+  if (ignBtnSel) ignBtnSel.addEventListener('change', () => onSwitchButtonSelectChange('ignition', ignBtnSel));
+  if (netBtnSel) netBtnSel.addEventListener('change', () => onSwitchButtonSelectChange('netDeploy', netBtnSel));
 
   // Always show at least 8 axis rows (0-7). Some controllers/browsers
   // (notably iOS Safari with certain Bluetooth transmitters) report a
@@ -535,11 +592,12 @@
     { key: 'roll',      text: 'Push the ROLL stick fully to the RIGHT and hold it there, then capture.' },
     { key: 'yaw',       text: 'Push the YAW stick fully to the RIGHT and hold it there, then capture.' },
     { key: 'throttle',  text: 'Raise the THROTTLE stick to full and hold it there, then capture.' },
-    { key: 'ignition',  text: 'Flip the IGNITION switch ON and hold it there, then capture.' },
-    { key: 'netDeploy', text: 'Flip the NET DEPLOY switch ON and hold it there, then capture.' }
+    { key: 'ignition',  text: 'Flip the IGNITION switch ON (or press its button) and hold it there, then capture.' },
+    { key: 'netDeploy', text: 'Flip the NET DEPLOY switch ON (or press its button) and hold it there, then capture.' }
   ];
   let calStep = 0;
   let calCenterSnapshot = null;
+  let calButtonSnapshot = null;
   let calAssignedAxes = [];
   let calResult = {};
 
@@ -560,6 +618,7 @@
     }
     calStep = 0;
     calCenterSnapshot = null;
+    calButtonSnapshot = null;
     calAssignedAxes = [];
     calResult = {};
     calStepLabel.textContent = 'STEP 1 / ' + calSteps.length;
@@ -577,10 +636,35 @@
     const gp = getActiveGamepad();
     if (!gp) { closeCalibration(); return; }
     const axes = gp.axes.slice();
+    const buttons = gp.buttons.map(b => b.pressed || b.value > 0.5);
     const stepKey = calSteps[calStep].key;
 
     if (stepKey === 'center') {
       calCenterSnapshot = axes;
+      calButtonSnapshot = buttons;
+    } else if (stepKey === 'ignition' || stepKey === 'netDeploy') {
+      // some controllers expose the front switches as digital buttons
+      // rather than analog axes — check for a newly-pressed button first
+      let pressedBtn = -1;
+      for (let i = 0; i < buttons.length; i++) {
+        if (buttons[i] && !(calButtonSnapshot && calButtonSnapshot[i])) { pressedBtn = i; break; }
+      }
+      if (pressedBtn !== -1) {
+        calResult[stepKey] = { button: pressedBtn };
+      } else {
+        let bestIdx = -1, bestDelta = 0;
+        for (let i = 0; i < axes.length; i++) {
+          if (calAssignedAxes.includes(i)) continue;
+          const d = axes[i] - (calCenterSnapshot[i] !== undefined ? calCenterSnapshot[i] : 0);
+          if (Math.abs(d) > Math.abs(bestDelta)) { bestDelta = d; bestIdx = i; }
+        }
+        if (bestIdx === -1 || Math.abs(bestDelta) < 0.15) {
+          alert('Didn\'t detect a button press or enough axis movement for this step — flip the switch fully on, then capture again.');
+          return;
+        }
+        calAssignedAxes.push(bestIdx);
+        calResult[stepKey] = { axis: bestIdx, center: calCenterSnapshot[bestIdx], delta: bestDelta };
+      }
     } else {
       let bestIdx = -1, bestDelta = 0;
       for (let i = 0; i < axes.length; i++) {
@@ -605,13 +689,22 @@
       cfg = calResult;
       window.__fpvCfg = cfg;
       calibrated = true;
-      calStatusHint.textContent = 'Calibrated. Roll, pitch, yaw, throttle, ignition and net deploy now match your controller\u2019s actual axes and directions.';
-      // reflect assignment in the manual override table dropdowns
+      calStatusHint.textContent = 'Calibrated. Roll, pitch, yaw, throttle, ignition and net deploy now match your controller\u2019s actual axes/buttons and directions.';
+      // reflect assignment in the manual override table dropdowns and the
+      // ignition/net-deploy button selects
       document.querySelectorAll('#axisTable select').forEach(s => s.value = '');
+      if (ignBtnSel) ignBtnSel.value = '';
+      if (netBtnSel) netBtnSel.value = '';
       for (const ch of ['roll','pitch','yaw','throttle','ignition','netDeploy']) {
-        const a = cfg[ch] && cfg[ch].axis;
-        const sel = document.getElementById('axUse' + a);
-        if (sel) sel.value = ch;
+        const chCfg = cfg[ch];
+        if (!chCfg) continue;
+        if (chCfg.button !== undefined) {
+          if (ch === 'ignition' && ignBtnSel) ignBtnSel.value = String(chCfg.button);
+          if (ch === 'netDeploy' && netBtnSel) netBtnSel.value = String(chCfg.button);
+        } else {
+          const sel = document.getElementById('axUse' + chCfg.axis);
+          if (sel) sel.value = ch;
+        }
       }
       closeCalibration();
       return;
