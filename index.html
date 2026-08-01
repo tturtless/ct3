@@ -1,0 +1,2405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FPV Stick Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #06090a;
+    --panel: #0c1315;
+    --line: #17282b;
+    --hud: #39ff9d;
+    --hud-dim: #1f7350;
+    --amber: #ffb020;
+    --cyan: #4dd8ff;
+    --red: #ff4d5e;
+    --text: #d9f5e8;
+    --text-dim: #6f8f88;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Chakra Petch', sans-serif;
+    overflow-x: hidden;
+  }
+  .mono { font-family: 'Share Tech Mono', monospace; }
+
+  body::before{
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(57,255,157,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57,255,157,0.035) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header{
+    position: relative; z-index: 1;
+    padding: 22px clamp(16px,4vw,40px) 10px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1{
+    margin: 0;
+    font-size: clamp(20px, 3vw, 28px);
+    letter-spacing: 2px;
+    font-weight: 700;
+    color: var(--hud);
+    text-shadow: 0 0 14px rgba(57,255,157,0.35);
+  }
+  header h1 span{ color: var(--text-dim); font-weight: 400; }
+  #status{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 5px 12px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+  #status.ok{ color: var(--hud); border-color: var(--hud-dim); }
+  #status.no{ color: var(--amber); border-color: #4a3a12; }
+
+  main{
+    position: relative; z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px clamp(16px,4vw,40px) 60px;
+    display: grid;
+    grid-template-columns: minmax(0,1.3fr) minmax(260px,1fr);
+    gap: 28px;
+  }
+  @media (max-width: 800px){
+    main{ grid-template-columns: 1fr; }
+  }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 18px 18px 22px;
+  }
+  .panel h2{
+    margin: 0 0 14px;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+
+  #hudWrap{ display:flex; flex-direction: column; align-items: center; gap: 14px; }
+  #hud{
+    width: 100%;
+    max-width: 520px;
+    aspect-ratio: 1;
+    display: block;
+  }
+  .readout-row{
+    display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .readout-row b{ color: var(--cyan); font-weight: 400; }
+
+  table{ width: 100%; border-collapse: collapse; font-family:'Share Tech Mono',monospace; font-size: 12.5px; }
+  th, td{ padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+  th{ color: var(--text-dim); font-weight: 400; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;}
+  td.val{ color: var(--cyan); }
+  .bar-cell{ width: 90px; }
+  .bar{ height: 6px; background: var(--line); border-radius: 3px; position: relative; overflow: hidden;}
+  .bar i{ position:absolute; top:0; bottom:0; background: var(--hud); width: 2px; }
+
+  select{
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 3px 4px;
+  }
+
+  .buttons-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(34px,1fr));
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .btn-led{
+    aspect-ratio: 1;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    display: flex; align-items:center; justify-content:center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .btn-led.on{
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #201400;
+    box-shadow: 0 0 10px rgba(255,176,32,0.6);
+  }
+
+  .cal-btn{
+    background: transparent;
+    border: 1px solid var(--hud-dim);
+    color: var(--hud);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+    font-size: 12.5px;
+    padding: 7px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .cal-btn:hover{ background: rgba(57,255,157,0.1); }
+  .cal-btn.secondary{
+    border-color: var(--line);
+    color: var(--text-dim);
+  }
+
+  footer{
+    position: relative; z-index: 1;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 0 20px 40px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .hint{
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-top: 10px;
+  }
+
+  /* ---- calibration overlay ---- */
+  #calOverlay{
+    position: fixed; inset: 0;
+    background: rgba(3,6,6,0.86);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    padding: 20px;
+  }
+  #calOverlay.show{ display: flex; }
+  .cal-card{
+    width: 100%;
+    max-width: 460px;
+    background: var(--panel);
+    border: 1px solid var(--hud-dim);
+    border-radius: 6px;
+    padding: 26px 26px 22px;
+    box-shadow: 0 0 40px rgba(57,255,157,0.08);
+  }
+  .cal-step{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--hud);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .cal-instruction{
+    font-size: 18px;
+    line-height: 1.5;
+    margin-bottom: 22px;
+    min-height: 80px;
+  }
+  .cal-actions{ display:flex; gap: 10px; justify-content: flex-end; }
+  .cal-progress{
+    display:flex; gap:6px; margin-top:18px;
+  }
+  .cal-dot{
+    flex: 1; height: 3px; background: var(--line); border-radius: 2px;
+  }
+  .cal-dot.done{ background: var(--hud); }
+  .cal-dot.active{ background: var(--amber); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FPV STICK BENCH <span>// gamepad axis tester</span></h1>
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+      <span class="mono" style="font-size:10.5px; color:var(--text-dim); letter-spacing:1px;">FLY:</span>
+      <button class="cal-btn mono" id="flyBtnAir65" data-drone="air65">▶ BetaFPV Air65 <span style="opacity:.55">7000KV</span></button>
+      <button class="cal-btn mono" id="flyBtnViper" data-drone="viper">▶ Viper Racer5 <span style="opacity:.55">5000KV</span></button>
+      <button class="cal-btn mono" id="flyBtnTitan" data-drone="titan">▶ Titan Cinewhoop <span style="opacity:.55">3000KV</span></button>
+      <button class="cal-btn mono" id="flyBtnNetGame" style="border-color:#4dd8ff; color:#4dd8ff;" title="Chase down rogue drones and fire nets at them: flip the switch on axis 6 (or key N) to launch one wide, high-powered net, flip off then on again to reload. A hit pops a parachute and drops the drone to the ground, where it despawns after 10s. Each capture spawns a faster, more evasive rogue tier: Scout, Runner, Evader, Phantom.">🕸 NET CHASE <span style="opacity:.55">7000KV</span></button>
+    </div>
+    <div id="status" class="no mono">NO CONTROLLER DETECTED</div>
+  </div>
+</header>
+
+<main>
+  <section class="panel" id="hudWrap">
+    <div class="panel-head">
+      <h2 style="margin-bottom:0;">Attitude / Position</h2>
+      <button class="cal-btn mono" id="startCalBtn">Start Calibration</button>
+    </div>
+    <svg id="hud" viewBox="0 0 300 300"></svg>
+    <div class="readout-row mono">
+      <span>ROLL: <b id="rRoll">0.00</b></span>
+      <span>PITCH: <b id="rPitch">0.00</b></span>
+      <span>YAW: <b id="rYaw">0.00</b></span>
+      <span>THROTTLE: <b id="rT">0.00</b></span>
+    </div>
+    <div class="hint" id="calStatusHint">
+      Not calibrated yet — using best-guess axis defaults. Click Start Calibration and follow the
+      prompts (center sticks, then pitch, roll, yaw, throttle) for correct, non-inverted control.
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Axes <span style="font-weight:400;text-transform:none;letter-spacing:0;">(manual override)</span></h2>
+    <div id="axisLimitNotice" style="display:none; font-family:'Share Tech Mono',monospace; font-size:11.5px;
+      color:#ffb020; border:1px solid #4a3a12; border-radius:3px; padding:7px 10px; margin-bottom:10px; line-height:1.5;">
+      ⚠ iOS/Safari limits gamepad axes to 0–3. Axes 4–7 (aux switches) are not exposed by the browser.
+      Use the on-screen IGNITION and NET buttons in the sim instead.
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Value</th><th class="bar-cell">Level</th><th>Use as</th></tr></thead>
+      <tbody id="axisTable"></tbody>
+    </table>
+
+    <h2 style="margin-top:20px;">Buttons</h2>
+    <div class="buttons-grid" id="buttonGrid"></div>
+  </section>
+</main>
+
+<footer>
+  Move a stick or press a button to wake up the controller if status says no controller detected.
+  Works with any HID gamepad/joystick your browser recognizes — including most FPV sim transmitters
+  plugged in via USB.
+</footer>
+
+<div id="flyOverlay" style="position:fixed; inset:0; background:#000; display:none; z-index:20;">
+  <canvas id="flyCanvas" style="display:block; width:100%; height:100%;"></canvas>
+
+  <!-- OSD -->
+  <div id="flyDroneLabel" style="position:absolute; top:14px; left:16px; font-family:'Share Tech Mono',monospace; color:#39ff9d; font-size:13px; text-shadow:0 0 6px rgba(0,0,0,0.9); letter-spacing:1px; pointer-events:none;">
+    BETAFPV AIR65 // 7000KV SIM
+  </div>
+  <div id="flyIgnitionLabel" style="position:absolute; top:36px; left:16px; font-family:'Share Tech Mono',monospace; color:#ff4d5e; font-size:12px; text-shadow:0 0 6px rgba(0,0,0,0.9); letter-spacing:1px; pointer-events:none;">
+    IGNITION OFF
+  </div>
+  <div id="flyNetLabel" style="display:none; position:absolute; top:58px; left:16px; font-family:'Share Tech Mono',monospace; color:#6f8f88; font-size:12px; text-shadow:0 0 6px rgba(0,0,0,0.9); letter-spacing:1px; pointer-events:none;">
+    NET STOWED
+  </div>
+  <div id="flyGameOsd" style="display:none; position:absolute; top:80px; left:16px; font-family:'Share Tech Mono',monospace; color:#4dd8ff; font-size:12px; text-shadow:0 0 6px rgba(0,0,0,0.9); letter-spacing:1px; pointer-events:none;">
+    ROGUE DRONES CONTAINED: 0
+  </div>
+  <div id="flyOsd" style="position:absolute; top:14px; right:16px; text-align:right; font-family:'Share Tech Mono',monospace; color:#39ff9d; font-size:13px; text-shadow:0 0 6px rgba(0,0,0,0.9); letter-spacing:1px; pointer-events:none; line-height:1.6;">
+    THR 0%<br>ALT 0.0m<br>SPD 0.0m/s
+  </div>
+  <div id="flyMsg" style="position:absolute; bottom:60px; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; color:#ffb020; font-size:14px; text-shadow:0 0 6px rgba(0,0,0,0.9); pointer-events:none; text-align:center;"></div>
+  <div style="position:absolute; bottom:16px; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; color:#6f8f88; font-size:11.5px; text-shadow:0 0 6px rgba(0,0,0,0.9); pointer-events:none; text-align:center;">
+    Gamepad: Roll/Pitch/Yaw/Throttle from your calibration, ignition = axis 7 &nbsp;|&nbsp; Keyboard fallback: W/S pitch, A/D roll, Q/E yaw, R/F throttle, SPACE reset &nbsp;|&nbsp; NET CHASE only: fire net = axis 6 / key N, one net per off→on flip &nbsp;|&nbsp; ESC to exit
+  </div>
+
+  <!-- crosshair -->
+  <svg width="26" height="26" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none;">
+    <line x1="13" y1="2" x2="13" y2="10" stroke="#39ff9d" stroke-width="1.5"/>
+    <line x1="13" y1="16" x2="13" y2="24" stroke="#39ff9d" stroke-width="1.5"/>
+    <line x1="2" y1="13" x2="10" y2="13" stroke="#39ff9d" stroke-width="1.5"/>
+    <line x1="16" y1="13" x2="24" y2="13" stroke="#39ff9d" stroke-width="1.5"/>
+  </svg>
+
+  <button class="cal-btn secondary mono" id="flyExitBtn" style="position:absolute; top:14px; left:50%; transform:translateX(-50%);">Exit (ESC)</button>
+
+  <!-- fallback touch buttons shown when hardware axes 6/7 are unavailable (e.g. iOS) -->
+  <button id="ignitionTouchBtn" style="display:none; position:absolute; bottom:80px; right:16px;
+    font-family:'Share Tech Mono',monospace; font-size:13px; letter-spacing:1px;
+    padding:14px 18px; border-radius:4px; border:2px solid #ff4d5e; color:#ff4d5e;
+    background:rgba(0,0,0,0.55); cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+    min-width:130px; text-align:center;">
+    IGNITION OFF
+  </button>
+  <button id="netTouchBtn" style="display:none; position:absolute; bottom:140px; right:16px;
+    font-family:'Share Tech Mono',monospace; font-size:13px; letter-spacing:1px;
+    padding:14px 18px; border-radius:4px; border:2px solid #4dd8ff; color:#4dd8ff;
+    background:rgba(0,0,0,0.55); cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+    min-width:130px; text-align:center;">
+    NET: READY
+  </button>
+
+  <!-- camera angle control -->
+  <div style="position:absolute; bottom:16px; right:16px; display:flex; flex-direction:column; align-items:flex-end; gap:4px; font-family:'Share Tech Mono',monospace; color:#39ff9d; font-size:11.5px; text-shadow:0 0 6px rgba(0,0,0,0.9);">
+    <label for="camAngleSlider">CAM ANGLE: <span id="camAngleVal">20</span>&deg;</label>
+    <input type="range" id="camAngleSlider" min="0" max="45" step="1" value="20" style="width:150px;">
+  </div>
+</div>
+
+<div id="calOverlay">
+  <div class="cal-card">
+    <div class="cal-step" id="calStepLabel">STEP 1 / 5</div>
+    <div class="cal-instruction" id="calInstruction">Center both sticks and set throttle to its lowest / idle position. Hold everything still, then continue.</div>
+    <div class="cal-actions">
+      <button class="cal-btn secondary mono" id="calCancelBtn">Cancel</button>
+      <button class="cal-btn mono" id="calNextBtn">Continue</button>
+    </div>
+    <div class="cal-progress" id="calProgress"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const statusEl = document.getElementById('status');
+  const axisTableBody = document.getElementById('axisTable');
+  const buttonGrid = document.getElementById('buttonGrid');
+  const rRoll = document.getElementById('rRoll');
+  const rPitch = document.getElementById('rPitch');
+  const rYaw = document.getElementById('rYaw');
+  const rT = document.getElementById('rT');
+  const calStatusHint = document.getElementById('calStatusHint');
+
+  let gpIndex = null;
+  let axisCount = 0;
+  let buttonCount = 0;
+  let calibrated = false;
+
+  // channel config: each channel maps to {axis, center, delta}
+  // normalized signed value = clamp((raw-center)/abs(delta), -1, 1) * sign(delta)... see computeSigned()
+  // default best-guess mapping before calibration
+  let cfg = {
+    roll:     { axis: 0, center: 0,  delta: 1 },
+    pitch:    { axis: 1, center: 0,  delta: 1 },
+    yaw:      { axis: 3, center: 0,  delta: 1 },
+    throttle: { axis: 2, center: -1, delta: 2 },
+    ignition: null,   // { axis: N } set by calibration or manual override
+    net:      null    // { axis: N } set by calibration or manual override
+  };
+
+  function computeSigned(gp, ch){
+    if (!ch) return 0;
+    const raw = gp.axes[ch.axis];
+    if (raw === undefined || ch.delta === 0) return 0;
+    let n = (raw - ch.center) / Math.abs(ch.delta) * Math.sign(ch.delta || 1);
+    return Math.max(-1, Math.min(1, n));
+  }
+  function computeThrottle(gp, ch){
+    if (!ch) return 0;
+    const raw = gp.axes[ch.axis];
+    if (raw === undefined || ch.delta === 0) return 0;
+    let n = (raw - ch.center) / ch.delta;
+    return Math.max(0, Math.min(1, n));
+  }
+  // expose for the 3D flight sim
+  window.__fpvComputeSigned = computeSigned;
+  window.__fpvComputeThrottle = computeThrottle;
+  window.__fpvCfg = cfg;
+
+  // ---------- HUD (SVG) ----------
+  const NS = "http://www.w3.org/2000/svg";
+  const hud = document.getElementById('hud');
+  function svgEl(tag, attrs){
+    const el = document.createElementNS(NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  hud.appendChild(svgEl('circle', {cx:150, cy:150, r:140, fill:'none', stroke:'#17282b', 'stroke-width':1}));
+  hud.appendChild(svgEl('circle', {cx:150, cy:150, r:95,  fill:'none', stroke:'#17282b', 'stroke-width':1}));
+  hud.appendChild(svgEl('circle', {cx:150, cy:150, r:50,  fill:'none', stroke:'#17282b', 'stroke-width':1}));
+  hud.appendChild(svgEl('line', {x1:150,y1:10,x2:150,y2:290, stroke:'#12201f', 'stroke-width':1}));
+  hud.appendChild(svgEl('line', {x1:10,y1:150,x2:290,y2:150, stroke:'#12201f', 'stroke-width':1}));
+
+  hud.appendChild(svgEl('rect', {x:20, y:40, width:10, height:220, rx:3, fill:'none', stroke:'#17282b'}));
+  const throttleFill = svgEl('rect', {x:20, y:260, width:10, height:0, rx:3, fill:'#39ff9d'});
+  hud.appendChild(throttleFill);
+
+  const craft = svgEl('g', {});
+  craft.appendChild(svgEl('circle', {cx:0, cy:0, r:26, fill:'rgba(57,255,157,0.12)'}));
+  craft.appendChild(svgEl('line', {x1:-16,y1:-16,x2:16,y2:16, stroke:'#39ff9d','stroke-width':2.5}));
+  craft.appendChild(svgEl('line', {x1:-16,y1:16,x2:16,y2:-16, stroke:'#39ff9d','stroke-width':2.5}));
+  craft.appendChild(svgEl('circle', {cx:-16,cy:-16,r:5,fill:'#4dd8ff'}));
+  craft.appendChild(svgEl('circle', {cx:16,cy:-16,r:5,fill:'#4dd8ff'}));
+  craft.appendChild(svgEl('circle', {cx:-16,cy:16,r:5,fill:'#4dd8ff'}));
+  craft.appendChild(svgEl('circle', {cx:16,cy:16,r:5,fill:'#4dd8ff'}));
+  craft.appendChild(svgEl('circle', {cx:0,cy:0,r:4,fill:'#ffb020'}));
+  // heading tick to make yaw rotation visible
+  craft.appendChild(svgEl('line', {x1:0,y1:0,x2:0,y2:-30, stroke:'#ff4d5e','stroke-width':2}));
+  hud.appendChild(craft);
+
+  function setCraft(nx, ny, yawDeg){
+    const cx = 150 + nx * 130;
+    const cy = 150 + ny * 130;
+    craft.setAttribute('transform', `translate(${cx},${cy}) rotate(${yawDeg})`);
+  }
+  setCraft(0,0,0);
+
+  function setThrottle(t){
+    const h = Math.max(0, Math.min(1, t)) * 220;
+    throttleFill.setAttribute('height', h);
+    throttleFill.setAttribute('y', 260 - h);
+  }
+
+  // ---------- Gamepad connection ----------
+  window.addEventListener('gamepadconnected', (e) => {
+    gpIndex = e.gamepad.index;
+    statusEl.textContent = (e.gamepad.id || 'CONTROLLER').toUpperCase().slice(0,42);
+    statusEl.classList.remove('no'); statusEl.classList.add('ok');
+  });
+  window.addEventListener('gamepaddisconnected', () => {
+    gpIndex = null;
+    statusEl.textContent = 'NO CONTROLLER DETECTED';
+    statusEl.classList.remove('ok'); statusEl.classList.add('no');
+  });
+
+  function getActiveGamepad(){
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let gp = null;
+    if (gpIndex !== null) gp = pads[gpIndex];
+    if (!gp) for (const p of pads) if (p) { gp = p; gpIndex = p.index; break; }
+    return gp;
+  }
+
+  // ---------- manual axis override table ----------
+  function buildAxisRow(i){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${i}</td>
+      <td class="val mono" id="axVal${i}">0.00</td>
+      <td class="bar-cell"><div class="bar"><i id="axBar${i}"></i></div></td>
+      <td>
+        <select id="axUse${i}" class="mono">
+          <option value="">--</option>
+          <option value="roll">Roll</option>
+          <option value="pitch">Pitch</option>
+          <option value="yaw">Yaw</option>
+          <option value="throttle">Throttle</option>
+        </select>
+      </td>`;
+    axisTableBody.appendChild(tr);
+    const sel = tr.querySelector('select');
+    for (const ch of ['roll','pitch','yaw','throttle']) if (cfg[ch] && cfg[ch].axis === i) sel.value = ch;
+    sel.addEventListener('change', () => {
+      const use = sel.value;
+      document.querySelectorAll('#axisTable select').forEach(s => {
+        if (s !== sel && s.value === use && use) s.value = '';
+      });
+      if (use === 'throttle') cfg[use] = { axis: i, center: -1, delta: 2 };
+      else if (use) cfg[use] = { axis: i, center: 0, delta: 1 };
+      window.__fpvCfg = cfg;
+    });
+  }
+
+  function buildButtonLeds(n){
+    buttonGrid.innerHTML = '';
+    for (let i=0;i<n;i++){
+      const d = document.createElement('div');
+      d.className = 'btn-led mono';
+      d.id = 'btn' + i;
+      d.textContent = i;
+      buttonGrid.appendChild(d);
+    }
+  }
+
+  function ensureAxisTable(n){
+    if (n === axisCount) return;
+    axisCount = n;
+    axisTableBody.innerHTML = '';
+    for (let i=0;i<n;i++) buildAxisRow(i);
+  }
+  function ensureButtons(n){
+    if (n === buttonCount) return;
+    buttonCount = n;
+    buildButtonLeds(n);
+  }
+
+  // ---------- Calibration wizard ----------
+  const calOverlay = document.getElementById('calOverlay');
+  const calInstruction = document.getElementById('calInstruction');
+  const calStepLabel = document.getElementById('calStepLabel');
+  const calNextBtn = document.getElementById('calNextBtn');
+  const calCancelBtn = document.getElementById('calCancelBtn');
+  const calProgress = document.getElementById('calProgress');
+  const startCalBtn = document.getElementById('startCalBtn');
+
+  const calSteps = [
+    { key: 'center',   text: 'Center both sticks and set throttle to its lowest / idle position. Hold everything still, then continue.' },
+    { key: 'pitch',    text: 'Push the PITCH stick fully forward (away from you) and hold it there, then capture.' },
+    { key: 'roll',     text: 'Push the ROLL stick fully to the RIGHT and hold it there, then capture.' },
+    { key: 'yaw',      text: 'Push the YAW stick fully to the RIGHT and hold it there, then capture.' },
+    { key: 'throttle', text: 'Raise the THROTTLE stick to full and hold it there, then capture.' }
+  ];
+  let calStep = 0;
+  let calCenterSnapshot = null;
+  let calAssignedAxes = [];
+  let calResult = {};
+
+  function renderCalProgress(){
+    calProgress.innerHTML = '';
+    calSteps.forEach((s, i) => {
+      const d = document.createElement('div');
+      d.className = 'cal-dot' + (i < calStep ? ' done' : (i === calStep ? ' active' : ''));
+      calProgress.appendChild(d);
+    });
+  }
+
+  function openCalibration(){
+    const gp = getActiveGamepad();
+    if (!gp) {
+      alert('No controller detected yet. Plug it in and move a stick or press a button first.');
+      return;
+    }
+    calStep = 0;
+    calCenterSnapshot = null;
+    calAssignedAxes = [];
+    calResult = {};
+    calStepLabel.textContent = 'STEP 1 / ' + calSteps.length;
+    calInstruction.textContent = calSteps[0].text;
+    calNextBtn.textContent = 'Continue';
+    renderCalProgress();
+    calOverlay.classList.add('show');
+  }
+
+  function closeCalibration(){
+    calOverlay.classList.remove('show');
+  }
+
+  function advanceCalibration(){
+    const gp = getActiveGamepad();
+    if (!gp) { closeCalibration(); return; }
+    const axes = gp.axes.slice();
+    const stepKey = calSteps[calStep].key;
+
+    if (stepKey === 'center') {
+      calCenterSnapshot = axes;
+    } else {
+      let bestIdx = -1, bestDelta = 0;
+      for (let i = 0; i < axes.length; i++) {
+        if (calAssignedAxes.includes(i)) continue;
+        const d = axes[i] - (calCenterSnapshot[i] !== undefined ? calCenterSnapshot[i] : 0);
+        if (Math.abs(d) > Math.abs(bestDelta)) { bestDelta = d; bestIdx = i; }
+      }
+      if (bestIdx === -1 || Math.abs(bestDelta) < 0.15) {
+        alert('Didn\'t detect enough stick movement for this step — try pushing it further to the extreme, then capture again.');
+        return;
+      }
+      calAssignedAxes.push(bestIdx);
+      if (stepKey === 'throttle') {
+        calResult.throttle = { axis: bestIdx, center: calCenterSnapshot[bestIdx], delta: bestDelta };
+      } else {
+        calResult[stepKey] = { axis: bestIdx, center: calCenterSnapshot[bestIdx], delta: bestDelta };
+      }
+    }
+
+    calStep++;
+    if (calStep >= calSteps.length) {
+      cfg = calResult;
+      window.__fpvCfg = cfg;
+      calibrated = true;
+      calStatusHint.textContent = 'Calibrated. Roll, pitch, yaw and throttle now match your controller\u2019s actual axes and directions.';
+      // reflect assignment in the manual override table dropdowns
+      document.querySelectorAll('#axisTable select').forEach(s => s.value = '');
+      for (const ch of ['roll','pitch','yaw','throttle']) {
+        const a = cfg[ch] && cfg[ch].axis;
+        const sel = document.getElementById('axUse' + a);
+        if (sel) sel.value = ch;
+      }
+      closeCalibration();
+      return;
+    }
+
+    calStepLabel.textContent = 'STEP ' + (calStep+1) + ' / ' + calSteps.length;
+    calInstruction.textContent = calSteps[calStep].text;
+    renderCalProgress();
+  }
+
+  startCalBtn.addEventListener('click', openCalibration);
+  calCancelBtn.addEventListener('click', closeCalibration);
+  calNextBtn.addEventListener('click', advanceCalibration);
+
+  // ---------- main poll loop ----------
+  function poll(){
+    const gp = getActiveGamepad();
+
+    if (gp) {
+      if (statusEl.classList.contains('no')) {
+        statusEl.textContent = (gp.id || 'CONTROLLER').toUpperCase().slice(0,42);
+        statusEl.classList.remove('no'); statusEl.classList.add('ok');
+      }
+      ensureAxisTable(gp.axes.length);
+      ensureButtons(gp.buttons.length);
+
+      for (let i=0;i<gp.axes.length;i++){
+        const v = gp.axes[i];
+        const valEl = document.getElementById('axVal'+i);
+        const barEl = document.getElementById('axBar'+i);
+        if (valEl) valEl.textContent = v.toFixed(2);
+        if (barEl) barEl.style.left = (((v+1)/2)*100) + '%';
+      }
+      for (let i=0;i<gp.buttons.length;i++){
+        const el = document.getElementById('btn'+i);
+        if (!el) continue;
+        const pressed = gp.buttons[i].pressed || gp.buttons[i].value > 0.5;
+        el.classList.toggle('on', pressed);
+      }
+
+      const roll = computeSigned(gp, cfg.roll);
+      const pitch = computeSigned(gp, cfg.pitch);
+      const yaw = computeSigned(gp, cfg.yaw);
+      const throttle = computeThrottle(gp, cfg.throttle);
+
+      // pushing pitch forward (positive) moves the craft up on screen; roll positive moves it right
+      setCraft(roll, -pitch, yaw * 45);
+      setThrottle(throttle);
+
+      rRoll.textContent = roll.toFixed(2);
+      rPitch.textContent = pitch.toFixed(2);
+      rYaw.textContent = yaw.toFixed(2);
+      rT.textContent = throttle.toFixed(2);
+    }
+
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  const flyExitBtn = document.getElementById('flyExitBtn');
+  const flyOverlay = document.getElementById('flyOverlay');
+  const flyCanvas = document.getElementById('flyCanvas');
+  const flyOsd = document.getElementById('flyOsd');
+  const flyMsg = document.getElementById('flyMsg');
+  const flyDroneLabel = document.getElementById('flyDroneLabel');
+  const flyNetLabel = document.getElementById('flyNetLabel');
+  const flyGameOsd = document.getElementById('flyGameOsd');
+  const flyBtnNetGame = document.getElementById('flyBtnNetGame');
+  const camAngleSlider = document.getElementById('camAngleSlider');
+  const camAngleVal = document.getElementById('camAngleVal');
+
+  // ---- craft roster: pick a KV, pick a fight ----
+  const DRONES = {
+    air65: { name: 'BETAFPV AIR65',     kv: 7000 },
+    viper: { name: 'VIPER RACER 5',     kv: 5000 },
+    titan: { name: 'TITAN CINEWHOOP',   kv: 3000 }
+  };
+  let selectedDrone = DRONES.air65;
+
+  let renderer, scene, camera, drone, propellers = [];
+  let obstacles = [];
+  let flying = false;
+  let animId = null;
+
+  // ---- NET CHASE minigame state ----
+  // Net launch uses the exact same "switch axis reads ~1 when on" mechanic as
+  // ignition (axis 7), but reads axis 6 instead. Firing is rate-limited by a
+  // cooldown, not by ammo — nets are unlimited for arcade play.
+  let netGameActive = false;
+  let netDeployed = false;      // raw axis-6/key-N switch state, read each frame
+  let netSwitchPrev = false;        // edge-detect: one net per off→on flip of the switch
+  const NET_SPEED = 63;             // m/s, muzzle velocity — short, controlled toss
+  const NET_GRAVITY = -72;          // strong droop so the net arcs down quickly instead of sailing
+  // NET_LIFETIME removed — an unfired net now stays live until it hits the ground
+  const NET_MIN_SCALE = 0.18;       // bundled size right at the muzzle
+  const NET_MAX_SCALE = 3.4;        // fully blossomed net radius (meters) — extra-wide coverage
+  const NET_OPEN_TIME = 0.16;       // seconds to go from bundled to fully open
+  const ROGUE_HIT_PAD = 0.9;        // extra forgiveness added to the net's open radius for the hit test
+  let netProjectiles = [];          // in-flight nets: {mesh, vel, age}
+
+  // Parachute deployed on the netted drone once it's captured, so it drifts
+  // down under canopy instead of just free-falling.
+  const CHUTE_DEPLOY_DELAY = 0.45;  // s after capture before the chute "pops" — lets the impact pop peak first
+  const CHUTE_DRAG = 3.2;           // extra downward drag once chute is open
+  const CHUTE_TERMINAL_VY = -2.2;   // max fall speed once chute is fully open
+
+  let rogueGroup = null;
+  let rogueAlive = false;
+  let rogueState = 'flying';        // 'flying' | 'falling' | 'grounded'
+  let rogueTarget = new THREE.Vector3();
+  let rogueVel = new THREE.Vector3();
+  let rogueGroundTimer = 0;
+  let rogueChuteTimer = 0;
+  let rogueChuteOpen = false;
+  const ROGUE_CENTER = new THREE.Vector3(0, 14, 0);
+  const ROGUE_RADIUS = 45;
+  const ROGUE_GRAVITY = -16;        // netted drones drop faster/heavier than the player craft
+  const ROGUE_GROUND_Y = 0.4;
+  const ROGUE_DESPAWN_AFTER = 10;   // seconds sitting on the ground before it despawns
+  const CHUTE_COLLAPSE_TIME = 0.75; // s for the chute to settle/flatten onto the ground after landing
+  let chuteCollapseT = 0;           // 0 = just landed (still inflated), 1 = fully collapsed flat
+  let chuteHeight = 1.6;            // current canopy height above the drone (world units)
+  let chuteScale = 1;               // current canopy scale (1 = full open)
+  let chuteLateralAngle = 0;        // horizontal direction the chute drifts to once grounded
+  let containedCount = 0;
+
+  // ---- Rogue drone "skill tiers" — each capture escalates the challenge.
+  // Tier stats scale up speed, size, roam range, and turn agility so later
+  // drones are genuinely harder to net, not just cosmetically different —
+  // mirrors the UAS Group 1-4 chart's own range/speed progression.
+  const ROGUE_TIERS = [
+    { name: 'ROGUE SCOUT',   color: 0xff2d3d, emissive: 0x661015, speed: 6.5,  weave: 0,    weaveFreq: 0,   dodge: 0,    scale: 1.0, roamRadius: 45, turnRate: 6  },
+    { name: 'ROGUE RUNNER',  color: 0xff8a1e, emissive: 0x663a10, speed: 13,   weave: 2.6,  weaveFreq: 1.8, dodge: 0,    scale: 1.7, roamRadius: 60, turnRate: 8  },
+    { name: 'ROGUE EVADER',  color: 0xffe11e, emissive: 0x66590f, speed: 19,   weave: 4.2,  weaveFreq: 2.6, dodge: 0.35, scale: 2.3, roamRadius: 78, turnRate: 10 },
+    { name: 'ROGUE PHANTOM', color: 0xb84dff, emissive: 0x481a66, speed: 15.5, weave: 4.6,  weaveFreq: 2.8, dodge: 0.6,  scale: 1.9, roamRadius: 90, turnRate: 10 },
+  ];
+  let rogueTierIdx = 0;
+
+  // camera mount angle (degrees tilted "up" from the frame's flat plane, 0-45)
+  let camAngleDeg = 20;
+  camAngleSlider.addEventListener('input', () => {
+    camAngleDeg = parseFloat(camAngleSlider.value);
+    camAngleVal.textContent = camAngleDeg.toFixed(0);
+  });
+
+  // physics state
+  let pos = new THREE.Vector3(0, 3, 20);
+  let vel = new THREE.Vector3(0, 0, 0);
+  // Attitude is stored as a quaternion, not separate yaw/pitch/roll floats.
+  // Stick rates are integrated directly in the CRAFT'S OWN body frame every
+  // frame (post-multiplying the quaternion), which is how a real acro flight
+  // controller works. This is what keeps roll/pitch/yaw feeling identical no
+  // matter how the craft is currently oriented — full flips, inverted flight,
+  // pitching straight up, etc. never "bug out" or swap axes, because there is
+  // no Euler-angle gimbal lock to fall into.
+  let orientation = new THREE.Quaternion();
+  const GRAVITY = -11.76; // raised 20% from real-world -9.8
+
+  const keys = {};
+  window.addEventListener('keydown', (e) => { keys[e.code] = true; if (flying && e.code === 'Escape') exitFly(); });
+  window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+  function initScene(){
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8fd0ff);
+    scene.fog = new THREE.Fog(0x8fd0ff, 40, 340);
+
+    camera = new THREE.PerspectiveCamera(95, flyCanvas.clientWidth / flyCanvas.clientHeight, 0.05, 650);
+    scene.add(camera); // lets objects parented to the camera (e.g. the deployable net) render
+
+    renderer = new THREE.WebGLRenderer({ canvas: flyCanvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    resizeRenderer();
+
+    // lights
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 0.9);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+    sun.position.set(60, 100, 40);
+    scene.add(sun);
+
+    // ground
+    const groundGeo = new THREE.PlaneGeometry(900, 900, 1, 1);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x3d7a3d });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    // grid helper for spatial reference
+    const grid = new THREE.GridHelper(900, 90, 0x225522, 0x2a662a);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    // obstacles: solid boxes, cylinders (gates/pillars), scattered around
+    const obstacleMat = new THREE.MeshStandardMaterial({ color: 0xcc4444 });
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d8 });
+    const gateMat = new THREE.MeshStandardMaterial({ color: 0xffb020 });
+
+    function addBox(x, y, z, w, h, d, mat){
+      const geo = new THREE.BoxGeometry(w, h, d);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x, y, z);
+      scene.add(mesh);
+      obstacles.push({ mesh, type: 'box', w, h, d });
+      return mesh;
+    }
+    function addCylinder(x, y, z, r, h, mat){
+      const geo = new THREE.CylinderGeometry(r, r, h, 16);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x, y, z);
+      scene.add(mesh);
+      obstacles.push({ mesh, type: 'cylinder', r, h });
+      return mesh;
+    }
+    // a ring of small cube "beads" you fly through the middle of — like a
+    // circular drone-racing gate. Ring stands vertically, hole facing +Z/-Z.
+    function addRingGate(cx, cy, cz, radius, mat, segments){
+      segments = segments || 16;
+      const bead = Math.max(0.9, radius * 0.16);
+      for (let i = 0; i < segments; i++){
+        const a = (i / segments) * Math.PI * 2;
+        const x = cx + Math.cos(a) * radius;
+        const y = cy + Math.sin(a) * radius;
+        addBox(x, y, cz, bead, bead, bead, mat);
+      }
+    }
+
+    // ---- a couple of simple scattered crates for close-quarters dodging ----
+    for (let i = 0; i < 10; i++){
+      const x = (Math.random()-0.5) * 140;
+      const z = (Math.random()-0.5) * 140 - 20;
+      if (Math.abs(x) < 6 && Math.abs(z - 20) < 10) continue; // keep spawn clear
+      const s = 1.5 + Math.random()*2.5;
+      addBox(x, s/2, z, s, s, s, obstacleMat);
+    }
+
+    // ---- multi-pillar field: a dense grid of varied-height pillars to
+    // weave through, no two lanes the same ----
+    (function buildPillarField(cx, cz, cols, rows, spacing){
+      for (let i = 0; i < cols; i++){
+        for (let j = 0; j < rows; j++){
+          const x = cx + (i - (cols-1)/2) * spacing + (Math.random()-0.5)*2.5;
+          const z = cz + (j - (rows-1)/2) * spacing + (Math.random()-0.5)*2.5;
+          const h = 6 + Math.random()*16;
+          addCylinder(x, h/2, z, 0.9 + Math.random()*0.6, h, pillarMat);
+        }
+      }
+    })(-70, 30, 6, 5, 9);
+
+    // ---- house: fly in through the front door, out a side window ----
+    const houseMat = new THREE.MeshStandardMaterial({ color: 0xd9c9a3 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x7a3b2e });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x5a4632 });
+    function buildHouse(hx, hz){
+      const W = 14, D = 12, WALL_H = 7;
+      const doorW = 3.4, doorH = 5;
+      const dSeg = (W - doorW) / 2;
+      addBox(hx - (W + doorW)/4, WALL_H/2, hz + D/2, dSeg, WALL_H, 0.5, houseMat);
+      addBox(hx + (W + doorW)/4, WALL_H/2, hz + D/2, dSeg, WALL_H, 0.5, houseMat);
+      addBox(hx, doorH + (WALL_H-doorH)/2, hz + D/2, doorW, WALL_H - doorH, 0.5, trimMat);
+      addBox(hx, WALL_H/2, hz - D/2, W, WALL_H, 0.5, houseMat);
+      addBox(hx - W/2, WALL_H/2, hz, 0.5, WALL_H, D, houseMat);
+      const winW = 3, winH = 3, winBottom = 2.2;
+      const wSeg = (D - winW) / 2;
+      addBox(hx + W/2, WALL_H/2, hz - (D + winW)/4, 0.5, WALL_H, wSeg, houseMat);
+      addBox(hx + W/2, WALL_H/2, hz + (D + winW)/4, 0.5, WALL_H, wSeg, houseMat);
+      addBox(hx + W/2, winBottom/2, hz, 0.5, winBottom, winW, houseMat);
+      addBox(hx + W/2, winBottom + winH + (WALL_H-winBottom-winH)/2, hz, 0.5, WALL_H-winBottom-winH, winW, houseMat);
+      const roofL = addBox(hx, WALL_H + 1.6, hz - D*0.27, W*0.62, 0.5, D*0.62, roofMat);
+      roofL.rotation.x = -0.5;
+      const roofR = addBox(hx, WALL_H + 1.6, hz + D*0.27, W*0.62, 0.5, D*0.62, roofMat);
+      roofR.rotation.x = 0.5;
+      addBox(hx + W*0.28, WALL_H + 3.2, hz - D*0.18, 1.1, 3, 1.1, trimMat);
+    }
+    buildHouse(45, -55);
+    buildHouse(90, 60); // a second house elsewhere on the map
+
+    // ---- buildings with pass-throughs: taller blocky structures with a
+    // clean rectangular hole punched straight through the middle ----
+    const buildingMat = new THREE.MeshStandardMaterial({ color: 0x8a95a1 });
+    const buildingMat2 = new THREE.MeshStandardMaterial({ color: 0x6f7d8c });
+    function buildPassThroughBuilding(bx, bz, W, D, H, holeW, holeH, mat, axis){
+      // axis 'z' = hole bores through along Z (walls on left/right/top/bottom
+      // as seen from front); axis 'x' = hole bores through along X
+      if (axis === 'z'){
+        const sideW = (W - holeW) / 2;
+        addBox(bx - (W+holeW)/4, H/2, bz, sideW, H, D, mat);
+        addBox(bx + (W+holeW)/4, H/2, bz, sideW, H, D, mat);
+        addBox(bx, holeH + (H-holeH)/2, bz, holeW, H-holeH, D, mat); // block above hole
+      } else {
+        const sideD = (D - holeW) / 2;
+        addBox(bx, H/2, bz - (D+holeW)/4, W, H, sideD, mat);
+        addBox(bx, H/2, bz + (D+holeW)/4, W, H, sideD, mat);
+        addBox(bx, holeH + (H-holeH)/2, bz, W, H-holeH, holeW, mat); // block above hole
+      }
+    }
+    buildPassThroughBuilding(-50, -110, 16, 16, 26, 7, 9, buildingMat, 'z');
+    buildPassThroughBuilding(85, -70, 14, 20, 22, 6.5, 8, buildingMat2, 'x');
+    buildPassThroughBuilding(20, 90, 18, 14, 30, 8, 10, buildingMat, 'z');
+
+    // ---- tunnel corridor: long roofed passage to fly straight through ----
+    const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x555f66 });
+    function buildTunnel(tx, tz, len, wallGap, wallH, rotateY){
+      const grp = new THREE.Group();
+      grp.position.set(tx, 0, tz);
+      grp.rotation.y = rotateY || 0;
+      scene.add(grp);
+      // build in local space then bake world position/rotation into obstacle boxes directly
+      const cosr = Math.cos(rotateY||0), sinr = Math.sin(rotateY||0);
+      function localBox(lx, ly, lz, w, h, d){
+        const wx = tx + lx*cosr - lz*sinr;
+        const wz = tz + lx*sinr + lz*cosr;
+        const box = addBox(wx, ly, wz, rotateY ? d : w, h, rotateY ? w : d, tunnelMat);
+        if (rotateY) box.rotation.y = rotateY;
+      }
+      localBox(-wallGap/2, wallH/2, 0, 0.6, wallH, len);
+      localBox(wallGap/2, wallH/2, 0, 0.6, wallH, len);
+      localBox(0, wallH + 0.3, 0, wallGap + 1.2, 0.6, len);
+    }
+    buildTunnel(-45, -40, 26, 5, 6, 0);
+    buildTunnel(-95, 5, 34, 6, 7, Math.PI/2.3); // second tunnel, angled off to add a turn
+
+    // ---- loop path: a full vertical loop made of ring-gate segments,
+    // like a rollercoaster loop you fly around the inside of ----
+    const loopMat = new THREE.MeshStandardMaterial({ color: 0xffb020 });
+    function buildLoopPath(cx, cy, cz, radius, segments){
+      segments = segments || 24;
+      const bead = 1.1;
+      for (let i = 0; i < segments; i++){
+        const a = (i / segments) * Math.PI * 2;
+        const x = cx + Math.sin(a) * radius; // loop faces along Z travel direction
+        const y = cy + Math.cos(a) * radius;
+        addBox(x, y, cz, bead, bead, bead, loopMat);
+      }
+    }
+    buildLoopPath(65, 14, -35, 10, 26);
+
+    // ---- GIANT SPIRAL CLIMBING POLE: modeled on a playground spiral
+    // ladder — a single continuous helical tube corkscrewing up around a
+    // straight center pole, hugely scaled up so you fly the corkscrew line
+    // around it (or dive straight up through the middle of the coil). Built
+    // from short straight segments angled to approximate the helix curve,
+    // same technique as the rest of the map (boxes only, no new geometry
+    // types), so it collides exactly like everything else here.
+    const spiralPoleMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.5 });
+    const spiralCenterMat = new THREE.MeshStandardMaterial({ color: 0xcfc19a, roughness: 0.5 });
+    function buildGiantSpiralTower(cx, cz, radius, totalHeight, turns, segsPerTurn){
+      // straight center pole, the "spine" of the structure, climbing the
+      // full height — you can shoot straight up the middle of the coil
+      addCylinder(cx, totalHeight/2, cz, 0.9, totalHeight, spiralCenterMat);
+      // helical "air stair": wide, flat tread-like segments (like the
+      // spiral staircase reference) instead of a thin rail, so the coil
+      // reads as a chunky ribbon of steps corkscrewing up the spine
+      const segs = turns * segsPerTurn;
+      const rise = totalHeight / segs;
+      const treadWidth = radius * 0.9; // how far the tread extends from the spine
+      const treadThickness = 0.7;
+      for (let i = 0; i < segs; i++){
+        const a0 = (i / segsPerTurn) * Math.PI * 2;
+        const a1 = ((i+1) / segsPerTurn) * Math.PI * 2;
+        const rMid = radius - treadWidth/2 + treadWidth/2; // outer edge follows radius
+        const x0 = cx + Math.cos(a0) * radius, z0 = cz + Math.sin(a0) * radius, y0 = i * rise + 1;
+        const x1 = cx + Math.cos(a1) * radius, z1 = cz + Math.sin(a1) * radius, y1 = (i+1) * rise + 1;
+        const mx = (x0+x1)/2, my = (y0+y1)/2, mz = (z0+z1)/2;
+        const dx = x1-x0, dy = y1-y0, dz = z1-z0;
+        const len = Math.sqrt(dx*dx+dy*dy+dz*dz);
+        // orient a wide flat slab (like a stair tread) along the helix
+        // direction, with its wide axis pointing radially outward from
+        // the spine — visually a thick "air stair", not a thin rail
+        const seg = addBox(mx, my, mz, treadWidth, treadThickness, Math.max(len, 1.4), spiralPoleMat);
+        seg.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3(dx,dy,dz).normalize());
+        // give the collider generous, roughly-true dimensions for the
+        // rotated wide tread so hits feel right from any approach angle
+        const ob = obstacles[obstacles.length-1];
+        ob.w = treadWidth; ob.h = treadThickness + 0.3; ob.d = Math.max(len, 1.4) + treadWidth*0.5;
+      }
+      // small landing platform at the very top, like the play structure deck
+      addBox(cx, totalHeight + 0.3, cz, 6, 0.6, 6, spiralCenterMat);
+    }
+    buildGiantSpiralTower(-15, -195, 8, 55, 4, 10);
+
+    // ---- twin spiral towers linked by a sky-bridge: two more giant spiral
+    // climbs (smaller than the main one) connected by a high crossing beam,
+    // so you can spiral up one, cross over, and dive down the other ----
+    function buildLinkedSpiralPair(cx, cz, gap, radius, height, turns){
+      buildGiantSpiralTower(cx - gap/2, cz, radius, height, turns, 9);
+      buildGiantSpiralTower(cx + gap/2, cz, radius, height, turns, 9);
+      const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x555f66 });
+      addBox(cx, height - 4, cz, gap - radius*1.4, 1.2, 2.6, bridgeMat); // walkable/flyable crossing beam
+      addBox(cx, height - 1.2, cz - 1.3, gap - radius*1.4, 0.15, 0.15, bridgeMat); // thin rail, top
+    }
+    buildLinkedSpiralPair(110, -30, 24, 5, 36, 3);
+
+    // ---- corkscrew flight tube: a long open helical corridor (two rails
+    // spiraling together like a DNA strand) you fly straight through the
+    // core of while banking with the turn — more complex than a simple
+    // spiral pole since it's a full enclosed-ish tube, not just a climb ----
+    const tubeMatA = new THREE.MeshStandardMaterial({ color: 0x39ff9d, roughness: 0.4 });
+    const tubeMatB = new THREE.MeshStandardMaterial({ color: 0x4dd8ff, roughness: 0.4 });
+    // a straight-line tube of rings that twists as it travels forward,
+    // giving a corkscrew flight path forward rather than a vertical climb
+    // (complements the vertical spiral towers above)
+    function buildForwardCorkscrew(sx, sy, sz, len, radius, turns, ringCount, matA, matB){
+      for (let i = 0; i < ringCount; i++){
+        const t = i / (ringCount - 1);
+        const z = sz - t * len;
+        const a = t * Math.PI * 2 * turns;
+        const yOff = Math.sin(a) * radius * 0.4; // gentle vertical weave while spinning
+        addRingGate(sx, sy + yOff, z, radius, i % 2 === 0 ? matA : matB, 14);
+      }
+    }
+    buildForwardCorkscrew(-70, 8, 90, 60, 4, 2.5, 10, tubeMatA, tubeMatB);
+
+    // ---- catwalk lattice: a multi-level open scaffold of crossing beams
+    // and platforms at three heights, forcing tight vertical threading
+    // between levels — more complex than the pillar field since gaps exist
+    // in X, Y, and Z all at once ----
+    const latticeMat = new THREE.MeshStandardMaterial({ color: 0x777f87 });
+    function buildCatwalkLattice(cx, cz, spanX, spanZ, levels){
+      for (let lvl = 0; lvl < levels; lvl++){
+        const y = 6 + lvl * 7;
+        // perimeter beams with a gap on each side to fly through, offset per level
+        const gapSide = lvl % 4; // rotate which side is open
+        const beams = [
+          { x: cx, z: cz - spanZ/2, w: spanX, d: 0.6, side: 0 },
+          { x: cx, z: cz + spanZ/2, w: spanX, d: 0.6, side: 1 },
+          { x: cx - spanX/2, z: cz, w: 0.6, d: spanZ, side: 2 },
+          { x: cx + spanX/2, z: cz, w: 0.6, d: spanZ, side: 3 },
+        ];
+        beams.forEach(b => {
+          if (b.side === gapSide) return; // leave this side open as the pass-through
+          addBox(b.x, y, b.z, b.w, 0.6, b.d, latticeMat);
+        });
+        // corner support posts tying levels together
+        [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx_,sz_]) => {
+          addBox(cx + sx_*spanX/2, y - 3.5, cz + sz_*spanZ/2, 0.5, 7, 0.5, latticeMat);
+        });
+      }
+    }
+    buildCatwalkLattice(-120, -50, 22, 18, 3);
+
+    // ---- stacked box tower with punch-through floors: a tall tower made
+    // of multiple floor frames, each with an offset square gap that rotates
+    // which quadrant is open per level, so flying up means threading a
+    // different gap on every floor ----
+    const stackMat = new THREE.MeshStandardMaterial({ color: 0x9a6b4a });
+    function buildPunchThroughTower(cx, cz, floors, floorGap, outer, hole){
+      for (let f = 0; f < floors; f++){
+        const y = 5 + f * floorGap;
+        const ang = (f % 4) * (Math.PI/2); // rotate which quadrant is "open" each floor
+        const offset = (outer - hole)/4;
+        const ox = Math.cos(ang) * offset, oz = Math.sin(ang) * offset;
+        const sideW = (outer - hole)/2;
+        addBox(cx + ox - hole/2 - sideW/2, y, cz + oz, sideW, 0.6, outer, stackMat);
+        addBox(cx + ox + hole/2 + sideW/2, y, cz + oz, sideW, 0.6, outer, stackMat);
+        // corner posts connecting this floor to the next
+        [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx_,sz_]) => {
+          addBox(cx + sx_*outer/2, y + floorGap/2, cz + sz_*outer/2, 0.4, floorGap, 0.4, stackMat);
+        });
+      }
+    }
+    buildPunchThroughTower(150, 20, 4, 8, 16, 7);
+
+    // ---- figure-eight hoop weave: two overlapping horizontal loops of
+    // hoops crossing in the middle, so the flight line has to bank hard
+    // left then right in a continuous figure-8 ----
+    const fig8MatA = new THREE.MeshStandardMaterial({ color: 0xffb020 });
+    const fig8MatB = new THREE.MeshStandardMaterial({ color: 0x39ff9d });
+    function buildFigureEightWeave(cx, cy, cz, loopR, count){
+      for (let i = 0; i < count; i++){
+        const t = (i/count) * Math.PI * 2;
+        const x1 = cx - loopR + Math.cos(t)*loopR;
+        const z1 = cz + Math.sin(t)*loopR;
+        addRingGate(x1, cy, z1, 2.6, fig8MatA, 10);
+        const x2 = cx + loopR - Math.cos(t)*loopR;
+        const z2 = cz - Math.sin(t)*loopR;
+        addRingGate(x2, cy, z2, 2.6, fig8MatB, 10);
+      }
+    }
+    buildFigureEightWeave(-10, 6, 55, 9, 8);
+
+    // ---- gauntlet corridor: a long narrow passage lined with alternating
+    // wall-mounted obstacles jutting in from both sides, forcing constant
+    // side-to-side dodging while flying straight down it ----
+    const gauntletMat = new THREE.MeshStandardMaterial({ color: 0xb84a3d });
+    function buildGauntlet(sx, sz, length, count){
+      const gap = length / count;
+      for (let i = 0; i < count; i++){
+        const z = sz - i * gap;
+        const fromLeft = i % 2 === 0;
+        const x = sx + (fromLeft ? -4 : 4);
+        addBox(x, 4 + Math.sin(i*0.8)*1.5, z, 4.5, 3, 1.2, gauntletMat);
+      }
+      // side walls to keep the corridor readable
+      addBox(sx - 7, 5, sz - length/2, 0.4, 10, length, gauntletMat);
+      addBox(sx + 7, 5, sz - length/2, 0.4, 10, length, gauntletMat);
+    }
+    buildGauntlet(40, -170, 50, 8);
+
+    // ---- floating platform cluster: a scatter of small floating slabs at
+    // varied heights close together, for tight over/under/around threading
+    // in a compact area rather than a long corridor ----
+    const floatMat = new THREE.MeshStandardMaterial({ color: 0x4a5a4a });
+    function buildFloatingCluster(cx, cz, count, spread){
+      for (let i = 0; i < count; i++){
+        const x = cx + (Math.random()-0.5) * spread;
+        const z = cz + (Math.random()-0.5) * spread;
+        const y = 5 + Math.random() * 20;
+        const w = 3 + Math.random()*3;
+        addBox(x, y, z, w, 0.6, w, floatMat);
+      }
+    }
+    buildFloatingCluster(130, -140, 16, 40);
+
+    // ---- arch gauntlet: a row of full stone-style arches (walls + open
+    // archway) close together, each rotated slightly, so you fly through a
+    // tight chicane of doorways rather than open hoops ----
+    const archWallMat = new THREE.MeshStandardMaterial({ color: 0x7d7568 });
+    function buildArchGauntlet(sx, sz, count, gap){
+      for (let i = 0; i < count; i++){
+        const z = sz - i * gap;
+        const yaw = (i % 2 === 0 ? 1 : -1) * 0.3;
+        const cx = sx + Math.sin(i*0.9) * 4;
+        const wallW = 9, wallH = 8, doorW = 3.6, doorH = 5.5;
+        const dSeg = (wallW - doorW)/2;
+        const l = addBox(cx - (wallW+doorW)/4, wallH/2, z, dSeg, wallH, 0.6, archWallMat);
+        const r = addBox(cx + (wallW+doorW)/4, wallH/2, z, dSeg, wallH, 0.6, archWallMat);
+        const top = addBox(cx, doorH + (wallH-doorH)/2, z, doorW, wallH-doorH, 0.6, archWallMat);
+        [l,r,top].forEach(m => { m.rotation.y = yaw; });
+      }
+    }
+    buildArchGauntlet(-100, 100, 5, 11);
+
+    // ---- checkered agility obstacles: inflatable-hurdle-style shapes
+    // (hexagon frames, square gates, stacked "ladder" gates, offset double
+    // squares, tripod poles) built from tube segments in alternating
+    // black/white bands like a checkered inflatable. Scattered around the
+    // map as small, low-to-the-ground fly-through/around obstacles that
+    // reward tight, precise flying rather than huge sweeping lines.
+    const checkerBlack = new THREE.MeshStandardMaterial({ color: 0x181818, roughness: 0.35 });
+    const checkerWhite = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.35 });
+    // one tube segment made of alternating short cylinder bands, oriented
+    // along an arbitrary direction — the building block for every shape
+    function checkerTube(p0, p1, radius){
+      const dx = p1[0]-p0[0], dy = p1[1]-p0[1], dz = p1[2]-p0[2];
+      const len = Math.sqrt(dx*dx+dy*dy+dz*dz);
+      const bands = Math.max(2, Math.round(len / 0.8));
+      const bandLen = len / bands;
+      const dir = new THREE.Vector3(dx,dy,dz).normalize();
+      const up = new THREE.Vector3(0,1,0);
+      for (let i = 0; i < bands; i++){
+        const t = (i + 0.5) / bands;
+        const mx = p0[0] + dx*t, my = p0[1] + dy*t, mz = p0[2] + dz*t;
+        const mat = i % 2 === 0 ? checkerBlack : checkerWhite;
+        const geo = new THREE.CylinderGeometry(radius, radius, bandLen * 1.02, 8);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(mx, my, mz);
+        mesh.quaternion.setFromUnitVectors(up, dir);
+        scene.add(mesh);
+        obstacles.push({ mesh, type: 'cylinder', r: radius, h: bandLen * 1.02 });
+      }
+    }
+    // hexagon frame lying flat-ish (like the honeycomb cluster in the photo)
+    function buildCheckerHex(cx, cy, cz, R, tubeR, tiltX){
+      tiltX = tiltX || 0;
+      const pts = [];
+      for (let i = 0; i < 6; i++){
+        const a = (i/6) * Math.PI * 2;
+        const x = cx + Math.cos(a) * R;
+        const zLocal = Math.sin(a) * R;
+        const y = cy + zLocal * Math.sin(tiltX);
+        const z = cz + zLocal * Math.cos(tiltX);
+        pts.push([x, y, z]);
+      }
+      for (let i = 0; i < 6; i++){
+        checkerTube(pts[i], pts[(i+1)%6], tubeR);
+      }
+      // three splayed support legs like the inflatable base
+      [0,2,4].forEach(i => {
+        checkerTube(pts[i], [pts[i][0], pts[i][1]-3.5, pts[i][2] + (i-2)*0.6], tubeR*0.85);
+      });
+    }
+    // simple square gate (like the checkered goal frames)
+    function buildCheckerSquareGate(cx, cy, cz, w, h, tubeR){
+      const bl = [cx - w/2, cy - h/2, cz], br = [cx + w/2, cy - h/2, cz];
+      const tl = [cx - w/2, cy + h/2, cz], tr = [cx + w/2, cy + h/2, cz];
+      checkerTube(bl, tl, tubeR);
+      checkerTube(br, tr, tubeR);
+      checkerTube(tl, tr, tubeR);
+      checkerTube(bl, br, tubeR); // bottom rail (small hop-over bar, like the hurdle base)
+      // splayed feet
+      checkerTube(bl, [bl[0]-1.3, bl[1]-1.2, bl[2]-1.0], tubeR*0.85);
+      checkerTube(br, [br[0]+1.3, br[1]-1.2, br[2]-1.0], tubeR*0.85);
+    }
+    // stacked "ladder" gate: several horizontal rungs between two posts,
+    // like the tall ladder-hurdle in the photo — multiple fly-through gaps
+    // stacked vertically in one structure
+    function buildCheckerLadder(cx, cy, cz, w, h, rungs, tubeR){
+      const post = h;
+      checkerTube([cx-w/2, cy, cz], [cx-w/2, cy+post, cz], tubeR);
+      checkerTube([cx+w/2, cy, cz], [cx+w/2, cy+post, cz], tubeR);
+      for (let i = 0; i <= rungs; i++){
+        const y = cy + (i/rungs) * post;
+        checkerTube([cx-w/2, y, cz], [cx+w/2, y, cz], tubeR);
+      }
+      checkerTube([cx-w/2, cy, cz], [cx-w/2-1.2, cy-1.1, cz-0.8], tubeR*0.85);
+      checkerTube([cx+w/2, cy, cz], [cx+w/2+1.2, cy-1.1, cz-0.8], tubeR*0.85);
+    }
+    // offset double-square: two square frames overlapping at an angle,
+    // like the two interlocking squares in the photo — a tight figure-8-ish
+    // double gap
+    function buildCheckerOffsetSquares(cx, cy, cz, w, h, tubeR, gap, twist){
+      buildCheckerSquareGate(cx - gap/2, cy, cz, w, h, tubeR);
+      const cx2 = cx + gap/2, cz2 = cz + Math.sin(twist)*gap*0.6;
+      const bl = [cx2 - w/2, cy - h/2, cz2], br = [cx2 + w/2, cy - h/2, cz2 + Math.sin(twist)*w*0.4];
+      const tl = [cx2 - w/2, cy + h/2, cz2], tr = [cx2 + w/2, cy + h/2, cz2 + Math.sin(twist)*w*0.4];
+      checkerTube(bl, tl, tubeR); checkerTube(br, tr, tubeR);
+      checkerTube(tl, tr, tubeR); checkerTube(bl, br, tubeR);
+    }
+    // simple tripod pole marker (like the center pole in the photo) — a
+    // small precision target to fly close around
+    function buildCheckerTripodPole(cx, cy, cz, h, tubeR){
+      checkerTube([cx, cy, cz], [cx, cy+h, cz], tubeR);
+      const legs = 3;
+      for (let i = 0; i < legs; i++){
+        const a = (i/legs) * Math.PI * 2;
+        checkerTube([cx, cy, cz], [cx + Math.cos(a)*1.4, cy-1.1, cz + Math.sin(a)*1.4], tubeR*0.8);
+      }
+    }
+    // pentagon frame (like the pentagon shape in the photo)
+    function buildCheckerPentagon(cx, cy, cz, R, tubeR){
+      const pts = [];
+      for (let i = 0; i < 5; i++){
+        const a = (i/5) * Math.PI * 2 - Math.PI/2;
+        pts.push([cx + Math.cos(a)*R, cy + Math.sin(a)*R*0.55, cz]);
+      }
+      for (let i = 0; i < 5; i++) checkerTube(pts[i], pts[(i+1)%5], tubeR);
+      checkerTube(pts[3], [pts[3][0]-1, pts[3][1]-1.3, pts[3][2]-0.8], tubeR*0.85);
+      checkerTube(pts[4], [pts[4][0]+1, pts[4][1]-1.3, pts[4][2]-0.8], tubeR*0.85);
+    }
+
+    // scatter a bunch of these across open areas of the map, at flight-
+    // friendly heights, in varied sizes so some are tight precision gaps
+    // and others are big sweeping frames
+    buildCheckerHex(10, 5, 25, 4.5, 0.35, 0.5);
+    buildCheckerHex(-140, 6, 20, 5, 0.35, -0.4);
+    buildCheckerSquareGate(55, 6, 15, 6, 6, 0.4);
+    buildCheckerSquareGate(-55, 5, -25, 5, 5.5, 0.4);
+    buildCheckerSquareGate(160, 6, -80, 6.5, 6, 0.4);
+    buildCheckerLadder(75, 4, 100, 6, 12, 3, 0.4);
+    buildCheckerLadder(-40, 4, 130, 5.5, 10, 3, 0.4);
+    buildCheckerOffsetSquares(0, 6, -55, 5, 5.5, 0.38, 6, 0.6);
+    buildCheckerOffsetSquares(130, 6, 60, 5, 5.5, 0.38, 6.5, -0.5);
+    buildCheckerTripodPole(35, 0, -95, 8, 0.3);
+    buildCheckerTripodPole(-115, 0, -20, 7, 0.3);
+    buildCheckerTripodPole(150, 0, 90, 9, 0.3);
+    buildCheckerPentagon(-70, 5, 60, 5, 0.38);
+    buildCheckerPentagon(95, 5, -10, 4.5, 0.38);
+
+    // ================================================================
+    // EXPANSION LAYER — bigger, smoother, more complex structures placed
+    // further out in the newly widened map. Uses higher segment counts on
+    // every curved shape (rings, tubes, domes) so silhouettes read as
+    // smooth curves rather than faceted polygons, for a more cinematic,
+    // polished look while still colliding with the same simple box/
+    // cylinder primitives as everything else.
+    // ================================================================
+    const smoothMatA = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.15 });
+    const smoothMatB = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.3, metalness: 0.15 });
+    const smoothMatC = new THREE.MeshStandardMaterial({ color: 0x2fa8ff, roughness: 0.35, metalness: 0.2 });
+    const smoothMatD = new THREE.MeshStandardMaterial({ color: 0xff5f7a, roughness: 0.35, metalness: 0.2 });
+
+    // ---- smooth tube helper: like checkerTube but with high segment count
+    // per band and smoother, longer bands for a sleeker look (used for the
+    // big new showpiece structures rather than the short-band checkered
+    // hurdle look) ----
+    function smoothTube(p0, p1, radius, mat, segsOverride){
+      const dx = p1[0]-p0[0], dy = p1[1]-p0[1], dz = p1[2]-p0[2];
+      const len = Math.sqrt(dx*dx+dy*dy+dz*dz);
+      if (len < 0.01) return;
+      const dir = new THREE.Vector3(dx,dy,dz).normalize();
+      const up = new THREE.Vector3(0,1,0);
+      const geo = new THREE.CylinderGeometry(radius, radius, len, segsOverride || 16);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(p0[0]+dx/2, p0[1]+dy/2, p0[2]+dz/2);
+      mesh.quaternion.setFromUnitVectors(up, dir);
+      scene.add(mesh);
+      obstacles.push({ mesh, type: 'cylinder', r: radius, h: len });
+    }
+
+    // ---- giant smooth ring arch: a single huge, high-segment ring gate
+    // (uses the existing addRingGate schematic with a big segment count for
+    // an ultra-smooth circular silhouette) planted as a monumental
+    // entrance you fly through from a long approach ----
+    const giantRingMat = new THREE.MeshStandardMaterial({ color: 0x4dd8ff, roughness: 0.3, metalness: 0.2 });
+    addRingGate(0, 26, -240, 22, giantRingMat, 40);
+    addRingGate(0, 26, -220, 16, smoothMatD, 32); // smaller concentric second ring just behind it for a layered look
+
+    // ---- twisting ribbon tower: a tall structure made of two smooth
+    // helical bands winding around each other (like a DNA double-helix),
+    // wide enough to fly up through the core between the two strands ----
+    function buildDoubleHelixTower(cx, cz, radius, height, turns, segsPerTurn){
+      const totalSegs = turns * segsPerTurn;
+      for (let strand = 0; strand < 2; strand++){
+        const phase = strand * Math.PI; // second strand offset 180°
+        const mat = strand === 0 ? smoothMatC : smoothMatA;
+        let prev = null;
+        for (let i = 0; i <= totalSegs; i++){
+          const t = i / totalSegs;
+          const a = t * Math.PI * 2 * turns + phase;
+          const x = cx + Math.cos(a) * radius;
+          const z = cz + Math.sin(a) * radius;
+          const y = 2 + t * height;
+          if (prev) smoothTube(prev, [x,y,z], 0.45, mat, 10);
+          prev = [x,y,z];
+        }
+      }
+      // slim rungs connecting the two strands every so often, like DNA
+      // base-pairs — thin enough to not block the flight path through core
+      for (let i = 0; i < turns * 3; i++){
+        const t = i / (turns*3);
+        const a = t * Math.PI * 2 * turns;
+        const y = 2 + t * height;
+        const x0 = cx + Math.cos(a) * radius, z0 = cz + Math.sin(a) * radius;
+        const x1 = cx + Math.cos(a+Math.PI) * radius, z1 = cz + Math.sin(a+Math.PI) * radius;
+        smoothTube([x0,y,z0], [x1,y,z1], 0.18, smoothMatB, 8);
+      }
+    }
+    buildDoubleHelixTower(-180, -100, 7, 50, 4, 14);
+
+    // ---- geodesic-style dome: a smooth hemisphere built from latitude
+    // rings of decreasing radius plus longitude arcs, with a wide open
+    // "equator" gap at flight height so you can rocket straight through
+    // the middle, or skim the curved shell on the way over the top ----
+    function buildGeoDome(cx, cz, baseY, R, rings){
+      const domeMat = smoothMatA;
+      // longitude arcs (meridians) — smooth tube segments following a
+      // circular arc from base to apex
+      const meridians = 10;
+      for (let m = 0; m < meridians; m++){
+        const lon = (m / meridians) * Math.PI * 2;
+        let prev = null;
+        const arcSegs = 14;
+        for (let i = 0; i <= arcSegs; i++){
+          const t = i / arcSegs; // 0 at base rim, 1 at apex
+          const lat = t * (Math.PI/2);
+          const r = R * Math.cos(lat);
+          const y = baseY + R * Math.sin(lat);
+          const x = cx + Math.cos(lon) * r;
+          const z = cz + Math.sin(lon) * r;
+          if (prev) smoothTube(prev, [x,y,z], 0.32, domeMat, 8);
+          prev = [x,y,z];
+        }
+      }
+      // latitude rings (only upper bands, leaving the whole base area open
+      // as one giant fly-through equator gap rather than a solid rim)
+      for (let ringIdx = 1; ringIdx <= rings; ringIdx++){
+        const lat = (ringIdx / (rings+1)) * (Math.PI/2);
+        const r = R * Math.cos(lat);
+        const y = baseY + R * Math.sin(lat);
+        addRingGate(cx, y, cz, r, domeMat, 28);
+      }
+    }
+    buildGeoDome(180, 120, 2, 26, 3);
+
+    // ---- wave tunnel: a long corridor whose floor and ceiling undulate
+    // smoothly in a sine wave (rather than staying flat), so flying through
+    // means pitching up and down continuously to stay centered ----
+    function buildWaveTunnel(sx, sz, length, width, baseH, amplitude, waves, segCount){
+      const waveMat = smoothMatC;
+      const segLen = length / segCount;
+      let prevFloor = null, prevCeil = null, prevWallL = null, prevWallR = null;
+      for (let i = 0; i <= segCount; i++){
+        const t = i / segCount;
+        const z = sz - t * length;
+        const wave = Math.sin(t * Math.PI * 2 * waves) * amplitude;
+        const floorY = 1 + wave;
+        const ceilY = floorY + baseH;
+        const floorPt = [sx, floorY, z];
+        const ceilPt = [sx, ceilY, z];
+        const wallLPt = [sx - width/2, (floorY+ceilY)/2, z];
+        const wallRPt = [sx + width/2, (floorY+ceilY)/2, z];
+        if (prevFloor){
+          smoothTube(prevFloor, floorPt, 0.4, waveMat, 8);
+          smoothTube(prevCeil, ceilPt, 0.4, waveMat, 8);
+        }
+        // occasional cross-rib for structure & a clear "through" gap read
+        if (i % 3 === 0){
+          smoothTube([sx-width/2, floorY, z], [sx-width/2, ceilY, z], 0.35, smoothMatD, 8);
+          smoothTube([sx+width/2, floorY, z], [sx+width/2, ceilY, z], 0.35, smoothMatD, 8);
+        }
+        prevFloor = floorPt; prevCeil = ceilPt; prevWallL = wallLPt; prevWallR = wallRPt;
+      }
+    }
+    buildWaveTunnel(-160, 60, 90, 9, 8, 4, 2.5, 24);
+
+    // ---- inflatable-style smooth arch chain: big rounded checkered arches
+    // (rather than boxy ones) made of smooth curved tube segments, forming
+    // a bouncy-castle-like gauntlet of rounded doorways ----
+    function buildSmoothArchChain(sx, sz, count, gap, R){
+      for (let i = 0; i < count; i++){
+        const cz = sz - i * gap;
+        const cx = sx + Math.sin(i*0.8) * 5;
+        const cy = R + 1;
+        const arcSegs = 12;
+        let prev = null;
+        for (let s = 0; s <= arcSegs; s++){
+          const a = Math.PI * (s/arcSegs); // 0..PI, half circle across the top
+          const localX = cx - R + (2*R) * (s/arcSegs);
+          const y = cy + Math.sin(a) * R;
+          const pt = [localX, y, cz];
+          if (prev) smoothTube(prev, pt, 0.5, i % 2 === 0 ? smoothMatA : smoothMatB, 10);
+          prev = pt;
+        }
+      }
+    }
+    buildSmoothArchChain(60, 160, 5, 10, 5);
+
+    // ---- ring gate hoops: original schematic, kept exactly as-is ----
+    const ringMat1 = new THREE.MeshStandardMaterial({ color: 0xff4d5e });
+    const ringMat2 = new THREE.MeshStandardMaterial({ color: 0x4dd8ff });
+    const ringMat3 = new THREE.MeshStandardMaterial({ color: 0x39ff9d });
+    addRingGate(20, 5, -10, 4, ringMat1);
+    addRingGate(30, 7, -60, 4.5, ringMat2);
+    addRingGate(-25, 6, -85, 4, ringMat3);
+
+    // ---- hoop spiral: a helix of hoops climbing/descending, banking you
+    // through a continuous corkscrew line ----
+    const spiralMatA = new THREE.MeshStandardMaterial({ color: 0xff8a3d });
+    const spiralMatB = new THREE.MeshStandardMaterial({ color: 0x8a3dff });
+    function buildHoopSpiral(cx, baseY, cz, radius, turns, hoopCount, matA, matB){
+      for (let i = 0; i < hoopCount; i++){
+        const t = i / hoopCount;
+        const a = t * Math.PI * 2 * turns;
+        const x = cx + Math.cos(a) * radius;
+        const z = cz + Math.sin(a) * radius;
+        const y = baseY + t * turns * 6; // climbs 6 units per turn
+        addRingGate(x, y, z, 3, i % 2 === 0 ? matA : matB, 12);
+      }
+    }
+    buildHoopSpiral(-20, 4, -130, 14, 3, 9, spiralMatA, spiralMatB);
+
+    // ---- alternating hoop area: hoops that alternate orientation (facing
+    // forward, then sideways, then forward) so the flight line zigzags ----
+    const altMatA = new THREE.MeshStandardMaterial({ color: 0x4dd8ff });
+    const altMatB = new THREE.MeshStandardMaterial({ color: 0xff4d5e });
+    function buildAlternatingHoops(sx, sz, count, gap){
+      for (let i = 0; i < count; i++){
+        const x = sx + (i % 2 === 0 ? -6 : 6);
+        const z = sz - i * gap;
+        const y = 6 + Math.sin(i*1.3) * 2;
+        addRingGate(x, y, z, 3.2, i % 2 === 0 ? altMatA : altMatB, 12);
+      }
+    }
+    buildAlternatingHoops(0, -170, 8, 12);
+
+    // ---- windmill: cosmetic landmark to fly around ----
+    const millMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+    (function buildWindmill(mx, mz){
+      addCylinder(mx, 5, mz, 1, 10, millMat);
+      const hub = new THREE.Group();
+      hub.position.set(mx, 9.5, mz);
+      for (let i = 0; i < 4; i++){
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5, 1.1), bladeMat);
+        blade.position.y = 2.6;
+        const holder = new THREE.Group();
+        holder.rotation.z = (Math.PI/2) * i;
+        holder.add(blade);
+        hub.add(holder);
+      }
+      hub.rotation.x = 0.2;
+      scene.add(hub);
+    })(60, -20);
+
+    buildDrone();
+  }
+
+  function buildDrone(){
+    drone = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const propMat = new THREE.MeshStandardMaterial({ color: 0x111111, transparent: true, opacity: 0.6 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.08), bodyMat);
+    drone.add(body);
+
+    const armPositions = [[0.045,0,0.045],[-0.045,0,0.045],[0.045,0,-0.045],[-0.045,0,-0.045]];
+    armPositions.forEach(([x,,z]) => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.01,0.006,0.01), armMat);
+      arm.position.set(x, 0, z);
+      drone.add(arm);
+      const prop = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.002,10), propMat);
+      prop.position.set(x, 0.008, z);
+      drone.add(prop);
+      propellers.push(prop);
+    });
+
+    // this is a tiny cosmetic model; camera sits at drone position for FPV
+    drone.visible = false; // FPV view: we don't render our own body in first person
+    scene.add(drone);
+  }
+
+  function resizeRenderer(){
+    const w = flyOverlay.clientWidth, h = flyOverlay.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', () => { if (flying) resizeRenderer(); });
+
+  function collide(nextPos){
+    // returns null if clear, or { normal: THREE.Vector3 } describing the
+    // push-out direction of the surface that was hit, so the caller can do a
+    // soft "bump" (cancel only the into-surface velocity component) instead
+    // of a hard bounce-back.
+    const r = 0.35; // drone collision radius
+    for (const o of obstacles){
+      if (o.type === 'box'){
+        const dx = nextPos.x - o.mesh.position.x;
+        const dz = nextPos.z - o.mesh.position.z;
+        const dy = nextPos.y - o.mesh.position.y;
+        const hw = o.w/2 + r, hh = o.h/2 + r, hd = o.d/2 + r;
+        if (Math.abs(dx) < hw && Math.abs(dz) < hd && Math.abs(dy) < hh){
+          const px = hw - Math.abs(dx);
+          const py = hh - Math.abs(dy);
+          const pz = hd - Math.abs(dz);
+          let normal;
+          if (px <= py && px <= pz) normal = new THREE.Vector3(Math.sign(dx) || 1, 0, 0);
+          else if (py <= px && py <= pz) normal = new THREE.Vector3(0, Math.sign(dy) || 1, 0);
+          else normal = new THREE.Vector3(0, 0, Math.sign(dz) || 1);
+          return { normal };
+        }
+      } else if (o.type === 'cylinder'){
+        const dx = nextPos.x - o.mesh.position.x;
+        const dz = nextPos.z - o.mesh.position.z;
+        const dy = nextPos.y - o.mesh.position.y;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+        if (dist < o.r + r && Math.abs(dy) < o.h/2 + r){
+          const n = dist > 1e-5 ? new THREE.Vector3(dx/dist, 0, dz/dist) : new THREE.Vector3(1,0,0);
+          return { normal: n };
+        }
+      }
+    }
+    if (nextPos.y < 0.15) return { normal: new THREE.Vector3(0,1,0) };
+    return null;
+  }
+
+  const flyIgnitionLabel = document.getElementById('flyIgnitionLabel');
+  const ignitionTouchBtn = document.getElementById('ignitionTouchBtn');
+  const netTouchBtn = document.getElementById('netTouchBtn');
+
+  // track whether the hardware axes are available (updated each frame)
+  let axis7Available = false;
+  let axis6Available = false;
+
+  // touch-button ignition state (used only when axis 7 is absent)
+  let ignitionTouchOn = false;
+  ignitionTouchBtn.addEventListener('click', () => {
+    ignitionTouchOn = !ignitionTouchOn;
+    ignitionTouchBtn.textContent = ignitionTouchOn ? 'IGNITION ON' : 'IGNITION OFF';
+    ignitionTouchBtn.style.borderColor = ignitionTouchOn ? '#39ff9d' : '#ff4d5e';
+    ignitionTouchBtn.style.color       = ignitionTouchOn ? '#39ff9d' : '#ff4d5e';
+  });
+
+  // touch-button net state — tap to arm/disarm (edge triggers fire in animate loop)
+  let netTouchArmed = false;
+  netTouchBtn.addEventListener('click', () => {
+    netTouchArmed = !netTouchArmed;
+    netTouchBtn.textContent = netTouchArmed ? 'NET: ARMED' : 'NET: READY';
+    netTouchBtn.style.borderColor = netTouchArmed ? '#ffb020' : '#4dd8ff';
+    netTouchBtn.style.color       = netTouchArmed ? '#ffb020' : '#4dd8ff';
+  });
+
+  function updateTouchButtonVisibility(){
+    ignitionTouchBtn.style.display = axis7Available ? 'none' : 'block';
+    // only show net touch button during the net-chase minigame and when axis 6 is absent
+    netTouchBtn.style.display = (netGameActive && !axis6Available) ? 'block' : 'none';
+  }
+
+  function getInputs(){
+    // reuse the page's gamepad config (cfg) + active gamepad if present
+    let r = 0, p = 0, y = 0, t = 0;
+
+    // --- check AXIS 7 for ignition (switch goes -1 → +1 when toggled on) ---
+    // On iOS/Safari the Gamepad API only exposes axes 0-3, so axis 7 will never
+    // appear. When it's absent we fall through to the on-screen touch button.
+    let foundAxis7 = false;
+    try {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (const pd of pads) {
+        if (pd && pd.axes && pd.axes.length > 7) {
+          ignitionOn = pd.axes[7] > 0.5;
+          foundAxis7 = true;
+          break;
+        }
+      }
+    } catch(e){}
+    if (foundAxis7 !== axis7Available) {
+      axis7Available = foundAxis7;
+      updateTouchButtonVisibility();
+      // show/hide the iOS warning notice on the axis table page
+      const notice = document.getElementById('axisLimitNotice');
+      if (notice) notice.style.display = axis7Available ? 'none' : 'block';
+    }
+    // if hardware axis absent, use the touch toggle
+    if (!axis7Available) ignitionOn = ignitionTouchOn;
+
+    // update ignition OSD label
+    if (flyIgnitionLabel) {
+      flyIgnitionLabel.textContent = ignitionOn ? 'IGNITION ON' : 'IGNITION OFF';
+      flyIgnitionLabel.style.color = ignitionOn ? '#39ff9d' : '#ff4d5e';
+    }
+
+    // --- check AXIS 6 for net launch ---
+    // Same iOS limitation applies. Fall back to touch button or keyboard.
+    let foundAxis6 = false;
+    try {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (const pd of pads) {
+        if (pd && pd.axes && pd.axes.length > 6) {
+          netDeployed = pd.axes[6] > 0.5;
+          foundAxis6 = true;
+          break;
+        }
+      }
+    } catch(e){}
+    if (foundAxis6 !== axis6Available) {
+      axis6Available = foundAxis6;
+      updateTouchButtonVisibility();
+    }
+    if (!axis6Available) netDeployed = netTouchArmed; // touch button drives it when axis absent
+    if (keys['KeyN']) netDeployed = true; // keyboard fallback always honoured
+
+    // no ignition = no power, drone stays still
+    if (!ignitionOn) return { r, p, y, t };
+
+    const anyKey = keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD']||keys['KeyQ']||keys['KeyE']||keys['KeyR']||keys['KeyF'];
+
+    let usingPad = false;
+    if (!anyKey){
+      try {
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        let gp = null;
+        for (const pd of pads) if (pd) { gp = pd; break; }
+        if (gp && window.__fpvCfg){
+          const c = window.__fpvCfg;
+          r = window.__fpvComputeSigned(gp, c.roll);
+          p = window.__fpvComputeSigned(gp, c.pitch);
+          y = window.__fpvComputeSigned(gp, c.yaw);
+          t = window.__fpvComputeThrottle(gp, c.throttle);
+          // only trust the pad if it's actually reporting distinguishable axis data
+          if (gp.axes && gp.axes.length > 0) usingPad = true;
+        }
+      } catch(e){}
+    }
+
+    if (!usingPad){
+      // keyboard fallback (also used whenever a relevant key is held, even with a pad connected)
+      r = (keys['KeyD']?1:0) - (keys['KeyA']?1:0);
+      p = (keys['KeyW']?1:0) - (keys['KeyS']?1:0);
+      y = (keys['KeyE']?1:0) - (keys['KeyQ']?1:0);
+      if (keys['KeyR']) kbThrottle = Math.min(1, kbThrottle + 0.02);
+      if (keys['KeyF']) kbThrottle = Math.max(0, kbThrottle - 0.02);
+      t = kbThrottle;
+    }
+    return { r, p, y, t };
+  }
+  let kbThrottle = 0;
+  let ignitionOn = false;
+
+  // ---------- NET CHASE minigame helpers ----------
+
+  function pickRogueTarget(){
+    const ang = Math.random() * Math.PI * 2;
+    const tier = ROGUE_TIERS[Math.min(rogueTierIdx, ROGUE_TIERS.length - 1)];
+    const radius = tier.roamRadius || ROGUE_RADIUS;
+    const r = Math.random() * radius;
+    rogueTarget.set(
+      ROGUE_CENTER.x + Math.cos(ang) * r,
+      6 + Math.random() * 18,
+      ROGUE_CENTER.z + Math.sin(ang) * r
+    );
+  }
+
+  // Builds a body mesh styled after real UAS airframes, keyed by tier index:
+  // Group 1 (Scout) = thick quadrotor, Group 2 (Runner) = hexacopter
+  // (F550-style 6-arm multirotor), Group 3 (Evader) = Orlan-10-style
+  // pusher-prop fixed-wing with twin V-tail booms, Phantom (tier 4) =
+  // tailless swept flying-wing.
+  function buildDroneBody(tierIdx, bodyMat, armMat){
+    const body = new THREE.Group();
+    const propMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+
+    if (tierIdx === 0){
+      // ---- GROUP 1: small quadrotor, 3x thicker core/arms/motors ----
+      const core = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.72, 1.38), bodyMat);
+      body.add(core);
+      const armLen = 0.55;
+      const armPositions = [
+        [1, 1], [1, -1], [-1, 1], [-1, -1]
+      ];
+      armPositions.forEach(([sx, sz]) => {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.27, 0.3), armMat);
+        arm.position.set(sx * armLen * 0.5, 0, sz * armLen * 0.5);
+        arm.rotation.y = Math.atan2(sz, sx);
+        body.add(arm);
+        const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.39, 8), armMat);
+        motor.position.set(sx * armLen, 0.09, sz * armLen);
+        body.add(motor);
+        const prop = new THREE.Mesh(new THREE.CircleGeometry(0.24, 16), propMat);
+        prop.rotation.x = -Math.PI / 2;
+        prop.position.set(sx * armLen, 0.3, sz * armLen);
+        body.add(prop);
+      });
+
+    } else if (tierIdx === 1){
+      // ---- GROUP 2: hexacopter (F550-style 6-arm multirotor) ----
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.14, 6), bodyMat);
+      body.add(core);
+      const armLen = 0.62;
+      for (let i = 0; i < 6; i++){
+        const ang = (i / 6) * Math.PI * 2;
+        const sx = Math.cos(ang), sz = Math.sin(ang);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.06, 0.08), armMat);
+        arm.position.set(sx * armLen * 0.5, 0, sz * armLen * 0.5);
+        arm.rotation.y = -ang;
+        body.add(arm);
+        const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.13, 8), armMat);
+        motor.position.set(sx * armLen, 0.03, sz * armLen);
+        body.add(motor);
+        const prop = new THREE.Mesh(new THREE.CircleGeometry(0.26, 16), propMat);
+        prop.rotation.x = -Math.PI / 2;
+        prop.position.set(sx * armLen, 0.1, sz * armLen);
+        body.add(prop);
+        // landing leg, characteristic of the F550-style hex frame
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.32, 6), armMat);
+        leg.rotation.z = Math.PI / 8;
+        leg.position.set(sx * armLen * 0.85, -0.16, sz * armLen * 0.85);
+        body.add(leg);
+      }
+
+    } else if (tierIdx === 2){
+      // ---- GROUP 3: Orlan-10-style pusher-prop fixed-wing — bulbous
+      // rounded nose/fuselage pod, mid-mounted straight wing, twin
+      // tail booms with a V-tail, rear pusher prop ----
+      const fuselage = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), bodyMat);
+      fuselage.scale.set(1.5, 1, 1);
+      fuselage.position.set(0.15, 0, 0);
+      body.add(fuselage);
+      const tailCone = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.05, 0.65, 8), bodyMat);
+      tailCone.rotation.z = Math.PI / 2;
+      tailCone.position.set(-0.55, 0, 0);
+      body.add(tailCone);
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.05, 0.32), bodyMat);
+      wing.position.set(0, 0.05, 0);
+      body.add(wing);
+      // twin tail booms sweeping back from the wingtips to a V-tail
+      [1, -1].forEach(s => {
+        const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.9, 6), armMat);
+        boom.rotation.z = Math.PI / 2;
+        boom.position.set(-0.35, 0.02, s * 0.9);
+        body.add(boom);
+        const vfin = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.22), bodyMat);
+        vfin.position.set(-0.78, 0.1, s * 0.9);
+        vfin.rotation.z = s * 0.5; // canted outward/upward, forming the V
+        body.add(vfin);
+      });
+      const pusherProp = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12), propMat);
+      pusherProp.rotation.y = Math.PI / 2;
+      pusherProp.position.set(-0.88, 0, 0);
+      body.add(pusherProp);
+
+    } else {
+      // ---- PHANTOM (tier 4): tailless swept flying-wing, built from boxes
+      // for guaranteed compatibility (avoids any Shape/Extrude geometry) ----
+      const center = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.16, 0.4), bodyMat);
+      body.add(center);
+      // swept wing panels, stepped outward and back to fake a smooth taper
+      [1, -1].forEach(s => {
+        const seg1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.55), bodyMat);
+        seg1.position.set(-0.05, 0, s * 0.55);
+        seg1.rotation.y = s * 0.12;
+        body.add(seg1);
+        const seg2 = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.06, 0.5), bodyMat);
+        seg2.position.set(-0.22, 0, s * 0.98);
+        seg2.rotation.y = s * 0.32;
+        body.add(seg2);
+        const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.22), bodyMat);
+        tip.position.set(-0.38, 0.05, s * 1.28);
+        body.add(tip);
+      });
+      const propHub = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), armMat);
+      propHub.rotation.x = Math.PI / 2;
+      propHub.position.set(0.32, 0, 0);
+      body.add(propHub);
+      const prop = new THREE.Mesh(new THREE.CircleGeometry(0.2, 12), propMat);
+      prop.rotation.y = Math.PI / 2;
+      prop.position.set(0.37, 0, 0);
+      body.add(prop);
+    }
+
+    return body;
+  }
+
+  function createRogueDrone(tier, tierIdx){
+    const grp = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: tier.color, emissive: tier.emissive, emissiveIntensity: 0.7 });
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6 });
+    const groupIdx = Math.min(tierIdx === undefined ? 0 : tierIdx, 3); // 0-2 = Group 1-3, 3 = Phantom flying-wing
+    const body = buildDroneBody(groupIdx, bodyMat, armMat);
+    body.scale.setScalar(tier.scale || 1);
+    grp.add(body);
+    grp.userData.body = body;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.95, 0.05, 8, 24),
+      new THREE.MeshBasicMaterial({ color: tier.color, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = Math.PI / 2;
+    grp.add(ring);
+    grp.userData.ring = ring;
+    const beacon = new THREE.PointLight(tier.color, 1.4, 16);
+    grp.add(beacon);
+    grp.userData.beacon = beacon;
+    grp.userData.blink = 0;
+    grp.userData.tier = tier;
+    grp.userData.weavePhase = Math.random() * Math.PI * 2;
+    grp.userData.dodgeCooldown = 0;
+    scene.add(grp);
+    return grp;
+  }
+
+  function spawnRogue(){
+    if (rogueGroup) {
+      if (rogueGroup.userData.chute) scene.remove(rogueGroup.userData.chute);
+      scene.remove(rogueGroup);
+      rogueGroup = null;
+    }
+    const tier = ROGUE_TIERS[Math.min(rogueTierIdx, ROGUE_TIERS.length - 1)];
+    rogueGroup = createRogueDrone(tier, rogueTierIdx);
+    pickRogueTarget();
+    rogueGroup.position.copy(rogueTarget);
+    pickRogueTarget();
+    rogueAlive = true;
+    rogueState = 'flying';
+    rogueVel.set(0, 0, 0);
+    rogueGroundTimer = 0;
+    rogueChuteTimer = 0;
+    rogueChuteOpen = false;
+    chuteCollapseT = 0;
+    chuteHeight = 1.6;
+    chuteScale = 1;
+    if (flyGameOsd) flyGameOsd.textContent = `ROGUE DRONES CONTAINED: ${containedCount}  |  TARGET: ${tier.name}`;
+  }
+
+  function updateRogueDrone(dt){
+    if (!rogueAlive || !rogueGroup) return;
+    const tier = rogueGroup.userData.tier || ROGUE_TIERS[0];
+
+    if (rogueState === 'flying'){
+      const toTarget = rogueTarget.clone().sub(rogueGroup.position);
+      const d = toTarget.length();
+      if (d < 2.5) {
+        pickRogueTarget();
+      } else {
+        toTarget.normalize();
+        rogueGroup.position.addScaledVector(toTarget, tier.speed * dt);
+      }
+      // higher-tier drones weave laterally, making them harder to lead with a net
+      if (tier.weave > 0){
+        rogueGroup.userData.weavePhase += tier.weaveFreq * dt;
+        const lateral = new THREE.Vector3(-toTarget.z, 0, toTarget.x); // perpendicular to travel
+        rogueGroup.position.addScaledVector(lateral, Math.sin(rogueGroup.userData.weavePhase) * tier.weave * dt);
+      }
+      // top-tier drones actively dodge nets that get close, juking sideways
+      if (tier.dodge > 0){
+        rogueGroup.userData.dodgeCooldown -= dt;
+        for (const np of netProjectiles){
+          if (np.mesh.position.distanceTo(rogueGroup.position) < 6 && rogueGroup.userData.dodgeCooldown <= 0){
+            const away = rogueGroup.position.clone().sub(np.mesh.position).normalize();
+            const juke = new THREE.Vector3(-away.z, 0.3, away.x);
+            rogueGroup.position.addScaledVector(juke, tier.dodge * 6);
+            rogueGroup.userData.dodgeCooldown = 0.8;
+            break;
+          }
+        }
+      }
+      // orient the body to actually face its direction of travel, like a
+      // real aircraft/quad — no more constant spin-in-place, which looked
+      // broken once the body became a real quad/fixed-wing shape instead of
+      // a symmetric octahedron
+      if (toTarget.lengthSq() > 0.0001 && rogueGroup.userData.body){
+        const desiredYaw = Math.atan2(toTarget.x, toTarget.z) + Math.PI / 2; // model's nose points along +X
+        let yawDiff = desiredYaw - rogueGroup.userData.body.rotation.y;
+        yawDiff = Math.atan2(Math.sin(yawDiff), Math.cos(yawDiff)); // shortest-path wrap, avoids snapping the long way around
+        const turnRate = tier.turnRate || 6;
+        rogueGroup.userData.body.rotation.y += yawDiff * Math.min(1, turnRate * dt);
+      }
+      // the accent ring keeps its own independent spin as the "rogue" tell —
+      // it's a separate child mesh, so this no longer fights the body's facing
+      if (rogueGroup.userData.ring) rogueGroup.userData.ring.rotation.z += 3.2 * dt;
+      // frantic blinking beacon, the "rogue" tell
+      rogueGroup.userData.blink += dt;
+      if (rogueGroup.userData.beacon) {
+        rogueGroup.userData.beacon.intensity = 0.8 + Math.abs(Math.sin(rogueGroup.userData.blink * 9)) * 1.4;
+      }
+
+    } else if (rogueState === 'falling'){
+      // netted: tumbles briefly, then the parachute pops and it settles
+      // upright, drifting slowly down under canopy
+      rogueChuteTimer += dt;
+      if (!rogueChuteOpen && rogueChuteTimer >= CHUTE_DEPLOY_DELAY){
+        deployChute(rogueGroup);
+        rogueChuteOpen = true;
+        chuteHeight = 1.6;
+        chuteScale = 1;
+      }
+      rogueVel.y += ROGUE_GRAVITY * dt;
+      if (rogueChuteOpen){
+        // drag slows the fall to a gentle drift once the chute is out
+        rogueVel.y += CHUTE_DRAG * dt;
+        rogueVel.y = Math.max(rogueVel.y, CHUTE_TERMINAL_VY);
+        rogueVel.x *= Math.max(0, 1 - 2 * dt);
+        rogueVel.z *= Math.max(0, 1 - 2 * dt);
+        // settle out of the netted tumble and hold upright — the chute
+        // keeps the whole rig hanging straight down, no more spinning
+        rogueGroup.rotation.x = THREE.MathUtils.lerp(rogueGroup.rotation.x, 0, Math.min(1, 6 * dt));
+        rogueGroup.rotation.z = THREE.MathUtils.lerp(rogueGroup.rotation.z, 0, Math.min(1, 6 * dt));
+      } else {
+        rogueGroup.rotation.x += 7 * dt;
+        rogueGroup.rotation.z += 9 * dt;
+      }
+      rogueGroup.position.addScaledVector(rogueVel, dt);
+      if (rogueChuteOpen) updateChuteRig(rogueGroup, chuteHeight, chuteScale, 0, 0, 1);
+      if (rogueGroup.position.y <= ROGUE_GROUND_Y){
+        rogueGroup.position.y = ROGUE_GROUND_Y;
+        rogueVel.set(0,0,0);
+        rogueGroup.rotation.set(0.28, rogueGroup.rotation.y, 0.5); // tipped over, netted, on the ground
+        rogueState = 'grounded';
+        rogueGroundTimer = 0;
+        // start a smooth collapse of the chute onto the ground instead of snapping it flat
+        chuteCollapseT = 0;
+        chuteLateralAngle = Math.random() * Math.PI * 2; // random direction to fall to the side, away from the net
+        flyMsg.textContent = 'ROGUE DRONE DOWN — despawning in 10s';
+        setTimeout(() => { if (netGameActive && rogueState === 'grounded') flyMsg.textContent = ''; }, 1800);
+      }
+
+    } else if (rogueState === 'grounded'){
+      rogueGroundTimer += dt;
+      // smoothly ease the chute from its just-landed pose down to flat-on-the-ground, off to the side of the net
+      if (rogueGroup.userData.chute && chuteCollapseT < 1){
+        chuteCollapseT = Math.min(1, chuteCollapseT + dt / CHUTE_COLLAPSE_TIME);
+        const e = 1 - Math.pow(1 - chuteCollapseT, 3); // ease-out cubic, gentle settle rather than a sudden snap
+        chuteHeight = THREE.MathUtils.lerp(1.6, 0.05, e); // canopy sinks down to just above the ground
+        chuteScale = THREE.MathUtils.lerp(1, 0.8, e);      // deflates only slightly, stays a visible size on the ground
+        const chuteFlatten = THREE.MathUtils.lerp(1, 0.12, e); // dome squashes down into a flat pancaked canopy
+        const lateralDist = THREE.MathUtils.lerp(0, 1.6, e); // drifts out to the side so it lands beside the net, not through it
+        const lateralOffset = lateralDist; // magnitude; direction applied via chuteLateralAngle below
+        updateChuteRig(rogueGroup, chuteHeight, chuteScale, lateralOffset, chuteLateralAngle, chuteFlatten);
+      }
+      if (rogueGroundTimer >= ROGUE_DESPAWN_AFTER){
+        if (rogueGroup.userData.chute) scene.remove(rogueGroup.userData.chute);
+        scene.remove(rogueGroup);
+        rogueGroup = null;
+        rogueAlive = false;
+        if (netGameActive){
+          rogueTierIdx = Math.min(rogueTierIdx + 1, ROGUE_TIERS.length - 1);
+          const nextTier = ROGUE_TIERS[rogueTierIdx];
+          flyMsg.textContent = `NEW ROGUE DRONE INBOUND — ${nextTier.name}`;
+          setTimeout(() => { if (netGameActive) flyMsg.textContent = ''; }, 1800);
+          spawnRogue();
+        }
+      }
+    }
+  }
+
+  // Deploys a small canopy above the captured drone once netted — a simple
+  // billowed dome + shroud lines, matched in color to the net itself.
+  // Added directly to the scene (NOT parented to the drone) so it stays
+  // upright regardless of how the netted drone tumbles; position and the
+  // shroud-line geometry are refreshed every frame in updateRogueDrone so
+  // the cords always visibly terminate exactly on the drone/net.
+  function deployChute(grp){
+    if (grp.userData.chute) return;
+    const chuteGrp = new THREE.Group();
+    const canopy = new THREE.Mesh(
+      new THREE.SphereGeometry(0.9, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xff8c1a, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+    );
+    chuteGrp.add(canopy);
+    chuteGrp.userData.canopy = canopy;
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x3a3a3a, transparent: true, opacity: 0.7 });
+    const lineCount = 6;
+    const lines = [];
+    for (let i = 0; i < lineCount; i++){
+      const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      const line = new THREE.Line(geo, lineMat);
+      chuteGrp.add(line);
+      lines.push(line);
+    }
+    chuteGrp.userData.lines = lines;
+    chuteGrp.userData.lineCount = lineCount;
+    chuteGrp.position.copy(grp.position).add(new THREE.Vector3(0, 1.6, 0));
+    scene.add(chuteGrp);
+    grp.userData.chute = chuteGrp;
+  }
+
+  // Keeps the chute canopy positioned above (and, once grounded, beside) the
+  // drone, and redraws the shroud lines each frame from the canopy's rim down
+  // to points on the net's outer wrap-sphere surface — not the drone's center
+  // — so the cords always look like they're tied to the net itself and never
+  // detach visually as it tumbles, drifts, or lands.
+  const NET_WRAP_RADIUS = 0.8; // fallback if a drone somehow has no stored wrap radius
+  function updateChuteRig(grp, canopyHeight, canopyScale, lateralOffset, lateralAngle, flatten){
+    const chuteGrp = grp.userData.chute;
+    if (!chuteGrp) return;
+    lateralOffset = lateralOffset || 0;
+    lateralAngle = lateralAngle || 0;
+    flatten = flatten === undefined ? 1 : flatten; // 1 = full dome height, toward 0 = pancaked flat
+    const dronePos = grp.position;
+    const wrapRadius = grp.userData.wrapRadius || NET_WRAP_RADIUS; // matches this drone's actual scaled wrap sphere
+    const offsetX = Math.cos(lateralAngle) * lateralOffset;
+    const offsetZ = Math.sin(lateralAngle) * lateralOffset;
+    const canopyCenter = new THREE.Vector3(dronePos.x + offsetX, dronePos.y + canopyHeight, dronePos.z + offsetZ);
+    chuteGrp.position.copy(canopyCenter);
+    chuteGrp.userData.canopy.scale.set(canopyScale, canopyScale * flatten, canopyScale);
+    const rimR = 0.85 * canopyScale;
+    const lines = chuteGrp.userData.lines;
+    const lineCount = chuteGrp.userData.lineCount;
+    for (let i = 0; i < lineCount; i++){
+      const ang = (i / lineCount) * Math.PI * 2;
+      const rimWorld = new THREE.Vector3(Math.cos(ang) * rimR, 0.05 * canopyScale * flatten, Math.sin(ang) * rimR).add(canopyCenter);
+      // anchor point on the outside surface of the net's wrap sphere, facing this rim point
+      const towardRim = rimWorld.clone().sub(dronePos);
+      const anchorDir = towardRim.lengthSq() > 0.0001 ? towardRim.normalize() : new THREE.Vector3(0, 1, 0);
+      const netAnchorWorld = dronePos.clone().addScaledVector(anchorDir, wrapRadius);
+      const rimLocal = rimWorld.clone().sub(chuteGrp.position);
+      const anchorLocal = netAnchorWorld.clone().sub(chuteGrp.position);
+      lines[i].geometry.setFromPoints([rimLocal, anchorLocal]);
+    }
+  }
+
+  // A woven-look net disc: radial "spokes" + concentric rings + weighted
+  // corners, built flat in local XZ... actually local XY (z=0), then oriented
+  // to face direction of travel each frame. Starts bundled small at the
+  // muzzle and blossoms open as it flies, like a real net-gun capture round.
+  function createNetProjectileMesh(){
+    const grp = new THREE.Group();
+    const spinner = new THREE.Group(); // spins independently of the aim orientation
+    const netMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+
+    const SPOKES = 8;
+    for (let i = 0; i < SPOKES; i++){
+      const ang = (i / SPOKES) * Math.PI * 2;
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(Math.cos(ang), Math.sin(ang), 0)
+      ]);
+      spinner.add(new THREE.Line(geo, netMat));
+    }
+    const RINGS = 3;
+    for (let s = 1; s <= RINGS; s++){
+      const rr = s / RINGS;
+      const pts = [];
+      for (let i = 0; i <= 24; i++){
+        const ang = (i / 24) * Math.PI * 2;
+        pts.push(new THREE.Vector3(Math.cos(ang) * rr, Math.sin(ang) * rr, 0));
+      }
+      spinner.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), netMat));
+    }
+    const weightMat = new THREE.MeshBasicMaterial({ color: 0x2a6f8a });
+    for (let i = 0; i < 4; i++){
+      const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const w = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), weightMat);
+      w.position.set(Math.cos(ang), Math.sin(ang), 0);
+      spinner.add(w);
+    }
+
+    grp.add(spinner);
+    grp.userData.spinner = spinner;
+    grp.scale.setScalar(NET_MIN_SCALE); // launched bundled/closed
+    return grp;
+  }
+
+  // Fires a single net from the drone's nose. Ammo is unlimited (arcade
+  // rules) — the caller in animate() only lets this fire on the off→on edge
+  // of the switch, so one flip = one net, and it must be flipped off and back
+  // on again before the next one launches.
+  function fireNet(){
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(orientation);
+    // steep loft off the forward vector — same muzzle speed as before, but
+    // most of it now goes into height instead of distance: cuts total
+    // horizontal range by ~75% while sending the net much higher before it falls
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(orientation);
+    const launchDir = forward.clone().addScaledVector(up, 1.25).normalize();
+    const mesh = createNetProjectileMesh();
+    const launchPos = pos.clone().addScaledVector(forward, 0.6).addScaledVector(up, 0.06);
+    mesh.position.copy(launchPos);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), launchDir);
+    scene.add(mesh);
+    netProjectiles.push({ mesh, vel: launchDir.clone().multiplyScalar(NET_SPEED), age: 0, launchPos });
+  }
+
+  // net now only despawns on a hit or when it touches the ground — no range cap
+
+  function updateNetProjectiles(dt){
+    for (let i = netProjectiles.length - 1; i >= 0; i--){
+      const np = netProjectiles[i];
+      np.age += dt;
+      np.vel.y += NET_GRAVITY * dt;
+      np.mesh.position.addScaledVector(np.vel, dt);
+
+      // keep the open net's face pointing the way it's actually traveling
+      if (np.vel.lengthSq() > 0.0001){
+        np.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), np.vel.clone().normalize());
+      }
+      // blossom open over NET_OPEN_TIME, then hold at full spread
+      const openT = Math.min(1, np.age / NET_OPEN_TIME);
+      const scale = NET_MIN_SCALE + (NET_MAX_SCALE - NET_MIN_SCALE) * openT;
+      np.mesh.scale.setScalar(scale);
+      if (np.mesh.userData.spinner) np.mesh.userData.spinner.rotation.z += 8 * dt;
+
+      // hit radius grows with how open the net currently is — a fresh-fired,
+      // still-bundled net is a tighter throw; a fully blossomed one gives
+      // generous coverage to actually tangle the rogue drone
+      let spent = false;
+      if (rogueAlive && rogueGroup && rogueState === 'flying'){
+        const hitRadius = scale + ROGUE_HIT_PAD;
+        if (np.mesh.position.distanceTo(rogueGroup.position) < hitRadius){
+          captureRogue(np.vel);
+          spent = true;
+        }
+      }
+      if (spent || np.mesh.position.y < 0){
+        scene.remove(np.mesh);
+        netProjectiles.splice(i, 1);
+      }
+    }
+  }
+
+  // Net connects: the rogue drone gets knocked into a controlled fall, drags
+  // some of the net's momentum with it, then drops to the ground to despawn
+  // 10s later — same "Iron-Drone-Raider"-style net-and-drop, arcade timing.
+  function captureRogue(impactVel){
+    rogueState = 'falling';
+    rogueChuteTimer = 0;
+    rogueChuteOpen = false;
+    rogueVel.copy(impactVel).multiplyScalar(0.3);
+    rogueVel.x *= 0.25; // keep horizontal carry-over small so it doesn't rocket off sideways
+    rogueVel.z *= 0.25;
+    rogueVel.y = Math.max(rogueVel.y, 4.5); // strong vertical pop for a visible apogee before the chute settles it
+
+    if (rogueGroup && !rogueGroup.userData.wrap){
+      const tierScale = (rogueGroup.userData.tier && rogueGroup.userData.tier.scale) || 1;
+      const wrapRadius = 0.8 * tierScale; // scale wrap to match the drone's actual body size so the net properly encloses bigger airframes
+      const wrap = new THREE.Mesh(
+        new THREE.SphereGeometry(wrapRadius, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.75 })
+      );
+      rogueGroup.add(wrap);
+      rogueGroup.userData.wrap = wrap;
+      rogueGroup.userData.wrapRadius = wrapRadius;
+    }
+    if (rogueGroup && rogueGroup.userData.beacon) rogueGroup.userData.beacon.color.set(0x888888);
+
+    containedCount++;
+    const tierName = rogueGroup && rogueGroup.userData.tier ? rogueGroup.userData.tier.name : 'ROGUE DRONE';
+    if (flyGameOsd) flyGameOsd.textContent = `ROGUE DRONES CONTAINED: ${containedCount}`;
+    flyMsg.textContent = `NET HIT! ${tierName} CAPTURED — CHUTE DEPLOYING (${containedCount})`;
+    setTimeout(() => { if (netGameActive && rogueState === 'falling') flyMsg.textContent = ''; }, 1600);
+  }
+
+  let lastTime = null;
+  function animate(time){
+    if (!flying) return;
+    if (lastTime === null) lastTime = time;
+    let dt = (time - lastTime) / 1000;
+    dt = Math.min(dt, 0.05);
+    lastTime = time;
+
+    const { r, p, y, t } = getInputs();
+
+    // acro mode: sticks command a rotation RATE (deg/s equivalent), not a
+    // clamped attitude angle, so full flips/rolls/loops are possible and the
+    // craft holds whatever attitude you leave it at when sticks are centered.
+    const YAW_RATE = 4.2;   // rad/s at full deflection
+    const PITCH_RATE = 5.8; // rad/s at full deflection
+    const ROLL_RATE = 6.2;  // rad/s at full deflection
+
+    // Motor KV comes from whichever craft was selected at launch. KV chiefly
+    // drives motor RPM/thrust headroom, so it scales max acceleration
+    // (top end speed & punch) below.
+    const MOTOR_KV = selectedDrone.kv;
+    const KV_REF = 2700; // reference KV the base 52 m/s^2 figure was tuned at
+    const KV_SCALE = MOTOR_KV / KV_REF;
+
+    // ---- body-rate integration (quaternion, no gimbal lock) ----
+    // Build the angular velocity the sticks are commanding, expressed in the
+    // CRAFT'S OWN local axes (X = pitch axis, Y = yaw axis, Z = roll axis).
+    // Because this is applied in body space every frame, roll/pitch/yaw
+    // always mean "rotate about the nose/the belly/the spine as they are
+    // right now" — identical behavior whether the craft is level, inverted,
+    // mid-flip, or pitched straight up. That's what keeps stick orientation
+    // "solid" through full-deflection maneuvers instead of bugging out.
+    const bodyAngVel = new THREE.Vector3(
+      -p * PITCH_RATE,   // pitch about local X
+      -y * YAW_RATE,     // yaw about local Y
+      -r * ROLL_RATE      // roll about local Z
+    );
+    const angSpeed = bodyAngVel.length();
+    if (angSpeed > 1e-6) {
+      const axis = bodyAngVel.clone().normalize();
+      const dq = new THREE.Quaternion().setFromAxisAngle(axis, angSpeed * dt);
+      orientation.multiply(dq); // post-multiply = rotate in the craft's own frame
+      orientation.normalize();
+    }
+
+    // thrust acts along the drone's body "up" axis (like a real multirotor),
+    // found by rotating world-up through the current attitude quaternion —
+    // this stays correct at any orientation, including upside down.
+    const thrust = t * 52 * KV_SCALE; // max accel — 30000KV motors
+    const bodyUp = new THREE.Vector3(0, 1, 0).applyQuaternion(orientation);
+
+    vel.x += bodyUp.x * thrust * dt;
+    vel.z += bodyUp.z * thrust * dt;
+    vel.y += (bodyUp.y * thrust + GRAVITY) * dt;
+
+    // drag — separate, stronger drag on downward (falling) speed so descents
+    // feel weighty and controlled rather than floaty; horizontal/climb drag
+    // stays low for that high-KV top-speed feel.
+    const horizDrag = 1 - Math.min(1, 0.7*dt);
+    vel.x *= horizDrag;
+    vel.z *= horizDrag;
+    if (vel.y < 0){
+      vel.y *= (1 - Math.min(1, 0.15*dt)); // falling: much less air resistance, drops faster
+    } else {
+      vel.y *= horizDrag;
+    }
+
+    const nextPos = pos.clone().addScaledVector(vel, dt);
+    const hit = collide(nextPos);
+    if (!hit){
+      pos.copy(nextPos);
+    } else {
+      // soft bump: only cancel the velocity component driving INTO the
+      // surface (along its normal), keep the rest of the motion — a casual
+      // thud rather than a launch backwards, and no sticking to the wall.
+      const n = hit.normal;
+      const vDotN = vel.dot(n);
+      if (vDotN < 0){
+        vel.addScaledVector(n, -vDotN * 1.15);
+      }
+      pos.copy(nextPos).addScaledVector(n, 0.05); // tiny push-out to avoid sticking
+      flyMsg.textContent = 'BUMP';
+      setTimeout(() => { flyMsg.textContent=''; }, 300);
+    }
+    if (pos.y < 0.15){ pos.y = 0.15; vel.y = Math.max(0, vel.y); }
+
+    camera.position.copy(pos);
+    // Mounted FPV camera tilt: an extra local-X rotation on top of the
+    // craft's own attitude, up to 45 degrees "up". Applied AFTER the body
+    // orientation (local space), so it never interferes with roll/pitch/yaw
+    // control feel — it's purely a camera mount offset, same as on a real quad.
+    const camOffset = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(1, 0, 0),
+      THREE.MathUtils.degToRad(camAngleDeg)
+    );
+    camera.quaternion.copy(orientation).multiply(camOffset);
+
+    propellers.forEach(pr => pr.rotation.y += 40 * dt * (0.3 + t));
+
+    flyOsd.innerHTML = `THR ${(t*100).toFixed(0)}%<br>ALT ${pos.y.toFixed(1)}m<br>SPD ${vel.length().toFixed(1)}m/s`;
+
+    if (netGameActive){
+      // one net per off→on flip of the switch — must be disabled and
+      // re-enabled to launch another (ammo itself stays unlimited)
+      if (netDeployed && !netSwitchPrev){
+        fireNet();
+      }
+      netSwitchPrev = netDeployed;
+      if (flyNetLabel){
+        if (netDeployed){
+          flyNetLabel.textContent = 'NET: ARMED (flip off to reload)';
+          flyNetLabel.style.color = '#ffb020';
+        } else {
+          flyNetLabel.textContent = 'NET: READY';
+          flyNetLabel.style.color = '#4dd8ff';
+        }
+      }
+      updateRogueDrone(dt);
+      updateNetProjectiles(dt);
+    }
+
+    renderer.render(scene, camera);
+    animId = requestAnimationFrame(animate);
+  }
+
+  function clearNetGameState(){
+    netGameActive = false;
+    netDeployed = false;
+    netSwitchPrev = false;
+    rogueAlive = false;
+    rogueState = 'flying';
+    if (rogueGroup) {
+      if (rogueGroup.userData.chute) scene.remove(rogueGroup.userData.chute);
+      scene.remove(rogueGroup);
+      rogueGroup = null;
+    }
+    netProjectiles.forEach(np => scene.remove(np.mesh));
+    netProjectiles = [];
+    if (flyNetLabel) flyNetLabel.style.display = 'none';
+    if (flyGameOsd) flyGameOsd.style.display = 'none';
+    netTouchArmed = false;
+    if (netTouchBtn) { netTouchBtn.style.display = 'none'; netTouchBtn.textContent = 'NET: READY'; netTouchBtn.style.borderColor = '#4dd8ff'; netTouchBtn.style.color = '#4dd8ff'; }
+  }
+
+  function enterFly(droneKey){
+    selectedDrone = DRONES[droneKey] || DRONES.air65;
+    flyDroneLabel.textContent = `${selectedDrone.name} // ${selectedDrone.kv}KV SIM`;
+    if (!scene) initScene();
+    flyOverlay.style.display = 'block';
+    resizeRenderer();
+    pos.set(0, 3, 20);
+    vel.set(0,0,0);
+    orientation.identity();
+    orientation.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI); // face spawn-forward
+    kbThrottle = 0;
+    ignitionOn = false;
+    ignitionTouchOn = false;
+    ignitionTouchBtn.textContent = 'IGNITION OFF';
+    ignitionTouchBtn.style.borderColor = '#ff4d5e';
+    ignitionTouchBtn.style.color = '#ff4d5e';
+    netTouchArmed = false;
+    netTouchBtn.textContent = 'NET: READY';
+    netTouchBtn.style.borderColor = '#4dd8ff';
+    netTouchBtn.style.color = '#4dd8ff';
+    updateTouchButtonVisibility();
+    if (flyIgnitionLabel) { flyIgnitionLabel.textContent = 'IGNITION OFF'; flyIgnitionLabel.style.color = '#ff4d5e'; }
+
+    // leaving/skipping the minigame — clear any rogue-drone game state
+    clearNetGameState();
+
+    flying = true;
+    lastTime = null;
+    animId = requestAnimationFrame(animate);
+  }
+
+  function enterNetGame(){
+    enterFly('air65'); // NET CHASE always flies the 7000KV Air65
+    flyDroneLabel.textContent = 'ROGUE DRONE CONTAINMENT // AIR65 7000KV';
+
+    containedCount = 0;
+    rogueTierIdx = 0;
+    netGameActive = true;
+    netSwitchPrev = false;
+    if (flyNetLabel) { flyNetLabel.style.display = 'block'; flyNetLabel.textContent = 'NET: READY'; flyNetLabel.style.color = '#4dd8ff'; }
+    if (flyGameOsd) { flyGameOsd.style.display = 'block'; flyGameOsd.textContent = 'ROGUE DRONES CONTAINED: 0'; }
+
+    spawnRogue();
+
+    flyMsg.textContent = 'Chase the rogue drone. Flip the net switch (axis 6 / key N) on to fire one wide, powerful net — flip it off then on again to reload. Each capture brings a tougher rogue.';
+    setTimeout(() => { if (netGameActive) flyMsg.textContent = ''; }, 5000);
+  }
+
+  function exitFly(){
+    flying = false;
+    if (animId) cancelAnimationFrame(animId);
+    flyOverlay.style.display = 'none';
+
+    // clean up rogue-drone minigame state so it doesn't leak into normal sim flights
+    clearNetGameState();
+  }
+
+  document.querySelectorAll('[data-drone]').forEach(btn => {
+    btn.addEventListener('click', () => enterFly(btn.getAttribute('data-drone')));
+  });
+  flyBtnNetGame.addEventListener('click', enterNetGame);
+  flyExitBtn.addEventListener('click', exitFly);
+})();
+</script>
+
+</body>
+</html>
