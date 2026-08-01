@@ -243,7 +243,7 @@
       <button class="cal-btn mono" id="flyBtnAir65" data-drone="air65">▶ BetaFPV Air65 <span style="opacity:.55">7000KV</span></button>
       <button class="cal-btn mono" id="flyBtnViper" data-drone="viper">▶ Viper Racer5 <span style="opacity:.55">5000KV</span></button>
       <button class="cal-btn mono" id="flyBtnTitan" data-drone="titan">▶ Titan Cinewhoop <span style="opacity:.55">3000KV</span></button>
-      <button class="cal-btn mono" id="flyBtnNetGame" style="border-color:#4dd8ff; color:#4dd8ff;" title="Chase down rogue drones and fire nets at them: flip the switch on axis 6 (or key N) to launch one wide, high-powered net, flip off then on again to reload. A hit pops a parachute and drops the drone to the ground, where it despawns after 10s. Each capture spawns a faster, more evasive rogue tier: Scout, Runner, Evader, Phantom.">🕸 NET CHASE <span style="opacity:.55">7000KV</span></button>
+      <button class="cal-btn mono" id="flyBtnNetGame" style="border-color:#4dd8ff; color:#4dd8ff;" title="Chase down rogue drones and fire nets at them: flip your calibrated net deploy switch (or key N) to launch one wide, high-powered net, flip off then on again to reload. A hit pops a parachute and drops the drone to the ground, where it despawns after 10s. Each capture spawns a faster, more evasive rogue tier: Scout, Runner, Evader, Phantom.">🕸 NET CHASE <span style="opacity:.55">7000KV</span></button>
     </div>
     <div id="status" class="no mono">NO CONTROLLER DETECTED</div>
   </div>
@@ -270,11 +270,6 @@
 
   <section class="panel">
     <h2>Axes <span style="font-weight:400;text-transform:none;letter-spacing:0;">(manual override)</span></h2>
-    <div id="axisLimitNotice" style="display:none; font-family:'Share Tech Mono',monospace; font-size:11.5px;
-      color:#ffb020; border:1px solid #4a3a12; border-radius:3px; padding:7px 10px; margin-bottom:10px; line-height:1.5;">
-      ⚠ iOS/Safari limits gamepad axes to 0–3. Axes 4–7 (aux switches) are not exposed by the browser.
-      Use the on-screen IGNITION and NET buttons in the sim instead.
-    </div>
     <table>
       <thead><tr><th>#</th><th>Value</th><th class="bar-cell">Level</th><th>Use as</th></tr></thead>
       <tbody id="axisTable"></tbody>
@@ -312,7 +307,7 @@
   </div>
   <div id="flyMsg" style="position:absolute; bottom:60px; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; color:#ffb020; font-size:14px; text-shadow:0 0 6px rgba(0,0,0,0.9); pointer-events:none; text-align:center;"></div>
   <div style="position:absolute; bottom:16px; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; color:#6f8f88; font-size:11.5px; text-shadow:0 0 6px rgba(0,0,0,0.9); pointer-events:none; text-align:center;">
-    Gamepad: Roll/Pitch/Yaw/Throttle from your calibration, ignition = axis 7 &nbsp;|&nbsp; Keyboard fallback: W/S pitch, A/D roll, Q/E yaw, R/F throttle, SPACE reset &nbsp;|&nbsp; NET CHASE only: fire net = axis 6 / key N, one net per off→on flip &nbsp;|&nbsp; ESC to exit
+    Gamepad: Roll/Pitch/Yaw/Throttle/Ignition/Net Deploy all from your calibration &nbsp;|&nbsp; Keyboard fallback: W/S pitch, A/D roll, Q/E yaw, R/F throttle, SPACE reset &nbsp;|&nbsp; NET CHASE only: fire net = calibrated net deploy switch / key N, one net per off→on flip &nbsp;|&nbsp; ESC to exit
   </div>
 
   <!-- crosshair -->
@@ -324,22 +319,6 @@
   </svg>
 
   <button class="cal-btn secondary mono" id="flyExitBtn" style="position:absolute; top:14px; left:50%; transform:translateX(-50%);">Exit (ESC)</button>
-
-  <!-- fallback touch buttons shown when hardware axes 6/7 are unavailable (e.g. iOS) -->
-  <button id="ignitionTouchBtn" style="display:none; position:absolute; bottom:80px; right:16px;
-    font-family:'Share Tech Mono',monospace; font-size:13px; letter-spacing:1px;
-    padding:14px 18px; border-radius:4px; border:2px solid #ff4d5e; color:#ff4d5e;
-    background:rgba(0,0,0,0.55); cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
-    min-width:130px; text-align:center;">
-    IGNITION OFF
-  </button>
-  <button id="netTouchBtn" style="display:none; position:absolute; bottom:140px; right:16px;
-    font-family:'Share Tech Mono',monospace; font-size:13px; letter-spacing:1px;
-    padding:14px 18px; border-radius:4px; border:2px solid #4dd8ff; color:#4dd8ff;
-    background:rgba(0,0,0,0.55); cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
-    min-width:130px; text-align:center;">
-    NET: READY
-  </button>
 
   <!-- camera angle control -->
   <div style="position:absolute; bottom:16px; right:16px; display:flex; flex-direction:column; align-items:flex-end; gap:4px; font-family:'Share Tech Mono',monospace; color:#39ff9d; font-size:11.5px; text-shadow:0 0 6px rgba(0,0,0,0.9);">
@@ -380,12 +359,12 @@
   // normalized signed value = clamp((raw-center)/abs(delta), -1, 1) * sign(delta)... see computeSigned()
   // default best-guess mapping before calibration
   let cfg = {
-    roll:     { axis: 0, center: 0,  delta: 1 },
-    pitch:    { axis: 1, center: 0,  delta: 1 },
-    yaw:      { axis: 3, center: 0,  delta: 1 },
-    throttle: { axis: 2, center: -1, delta: 2 },
-    ignition: null,   // { axis: N } set by calibration or manual override
-    net:      null    // { axis: N } set by calibration or manual override
+    roll:      { axis: 0, center: 0,  delta: 1 },
+    pitch:     { axis: 1, center: 0,  delta: 1 },
+    yaw:       { axis: 3, center: 0,  delta: 1 },
+    throttle:  { axis: 2, center: -1, delta: 2 },
+    ignition:  { axis: 7, center: -1, delta: 2 },
+    netDeploy: { axis: 6, center: -1, delta: 2 }
   };
 
   function computeSigned(gp, ch){
@@ -402,9 +381,16 @@
     let n = (raw - ch.center) / ch.delta;
     return Math.max(0, Math.min(1, n));
   }
+  // switch channels (ignition / net deploy) reuse the throttle-style 0..1
+  // normalization and are considered "on" past the halfway point
+  function computeSwitch(gp, ch){
+    if (!ch) return false;
+    return computeThrottle(gp, ch) >= 0.5;
+  }
   // expose for the 3D flight sim
   window.__fpvComputeSigned = computeSigned;
   window.__fpvComputeThrottle = computeThrottle;
+  window.__fpvComputeSwitch = computeSwitch;
   window.__fpvCfg = cfg;
 
   // ---------- HUD (SVG) ----------
@@ -486,17 +472,19 @@
           <option value="pitch">Pitch</option>
           <option value="yaw">Yaw</option>
           <option value="throttle">Throttle</option>
+          <option value="ignition">Ignition</option>
+          <option value="netDeploy">Net Deploy</option>
         </select>
       </td>`;
     axisTableBody.appendChild(tr);
     const sel = tr.querySelector('select');
-    for (const ch of ['roll','pitch','yaw','throttle']) if (cfg[ch] && cfg[ch].axis === i) sel.value = ch;
+    for (const ch of ['roll','pitch','yaw','throttle','ignition','netDeploy']) if (cfg[ch] && cfg[ch].axis === i) sel.value = ch;
     sel.addEventListener('change', () => {
       const use = sel.value;
       document.querySelectorAll('#axisTable select').forEach(s => {
         if (s !== sel && s.value === use && use) s.value = '';
       });
-      if (use === 'throttle') cfg[use] = { axis: i, center: -1, delta: 2 };
+      if (use === 'throttle' || use === 'ignition' || use === 'netDeploy') cfg[use] = { axis: i, center: -1, delta: 2 };
       else if (use) cfg[use] = { axis: i, center: 0, delta: 1 };
       window.__fpvCfg = cfg;
     });
@@ -513,7 +501,14 @@
     }
   }
 
+  // Always show at least 8 axis rows (0-7). Some controllers/browsers
+  // (notably iOS Safari with certain Bluetooth transmitters) report a
+  // shorter gp.axes.length than the hardware actually has, which would
+  // otherwise cap the manual override table before reaching the ignition
+  // (axis 7) and net deploy (axis 6) channels.
+  const MIN_AXIS_ROWS = 8;
   function ensureAxisTable(n){
+    n = Math.max(n, MIN_AXIS_ROWS);
     if (n === axisCount) return;
     axisCount = n;
     axisTableBody.innerHTML = '';
@@ -535,11 +530,13 @@
   const startCalBtn = document.getElementById('startCalBtn');
 
   const calSteps = [
-    { key: 'center',   text: 'Center both sticks and set throttle to its lowest / idle position. Hold everything still, then continue.' },
-    { key: 'pitch',    text: 'Push the PITCH stick fully forward (away from you) and hold it there, then capture.' },
-    { key: 'roll',     text: 'Push the ROLL stick fully to the RIGHT and hold it there, then capture.' },
-    { key: 'yaw',      text: 'Push the YAW stick fully to the RIGHT and hold it there, then capture.' },
-    { key: 'throttle', text: 'Raise the THROTTLE stick to full and hold it there, then capture.' }
+    { key: 'center',    text: 'Center both sticks, set throttle to its lowest / idle position, and leave the ignition and net deploy switches OFF. Hold everything still, then continue.' },
+    { key: 'pitch',     text: 'Push the PITCH stick fully forward (away from you) and hold it there, then capture.' },
+    { key: 'roll',      text: 'Push the ROLL stick fully to the RIGHT and hold it there, then capture.' },
+    { key: 'yaw',       text: 'Push the YAW stick fully to the RIGHT and hold it there, then capture.' },
+    { key: 'throttle',  text: 'Raise the THROTTLE stick to full and hold it there, then capture.' },
+    { key: 'ignition',  text: 'Flip the IGNITION switch ON and hold it there, then capture.' },
+    { key: 'netDeploy', text: 'Flip the NET DEPLOY switch ON and hold it there, then capture.' }
   ];
   let calStep = 0;
   let calCenterSnapshot = null;
@@ -608,10 +605,10 @@
       cfg = calResult;
       window.__fpvCfg = cfg;
       calibrated = true;
-      calStatusHint.textContent = 'Calibrated. Roll, pitch, yaw and throttle now match your controller\u2019s actual axes and directions.';
+      calStatusHint.textContent = 'Calibrated. Roll, pitch, yaw, throttle, ignition and net deploy now match your controller\u2019s actual axes and directions.';
       // reflect assignment in the manual override table dropdowns
       document.querySelectorAll('#axisTable select').forEach(s => s.value = '');
-      for (const ch of ['roll','pitch','yaw','throttle']) {
+      for (const ch of ['roll','pitch','yaw','throttle','ignition','netDeploy']) {
         const a = cfg[ch] && cfg[ch].axis;
         const sel = document.getElementById('axUse' + a);
         if (sel) sel.value = ch;
@@ -705,11 +702,12 @@
   let animId = null;
 
   // ---- NET CHASE minigame state ----
-  // Net launch uses the exact same "switch axis reads ~1 when on" mechanic as
-  // ignition (axis 7), but reads axis 6 instead. Firing is rate-limited by a
+  // Net launch uses the exact same calibrated on/off switch mechanic as
+  // ignition, just a separate channel (default axis 6, reassignable via
+  // manual override or the calibration wizard). Firing is rate-limited by a
   // cooldown, not by ammo — nets are unlimited for arcade play.
   let netGameActive = false;
-  let netDeployed = false;      // raw axis-6/key-N switch state, read each frame
+  let netDeployed = false;      // calibrated net-deploy switch / key-N state, read each frame
   let netSwitchPrev = false;        // edge-detect: one net per off→on flip of the switch
   const NET_SPEED = 63;             // m/s, muzzle velocity — short, controlled toss
   const NET_GRAVITY = -72;          // strong droop so the net arcs down quickly instead of sailing
@@ -1569,64 +1567,22 @@
   }
 
   const flyIgnitionLabel = document.getElementById('flyIgnitionLabel');
-  const ignitionTouchBtn = document.getElementById('ignitionTouchBtn');
-  const netTouchBtn = document.getElementById('netTouchBtn');
-
-  // track whether the hardware axes are available (updated each frame)
-  let axis7Available = false;
-  let axis6Available = false;
-
-  // touch-button ignition state (used only when axis 7 is absent)
-  let ignitionTouchOn = false;
-  ignitionTouchBtn.addEventListener('click', () => {
-    ignitionTouchOn = !ignitionTouchOn;
-    ignitionTouchBtn.textContent = ignitionTouchOn ? 'IGNITION ON' : 'IGNITION OFF';
-    ignitionTouchBtn.style.borderColor = ignitionTouchOn ? '#39ff9d' : '#ff4d5e';
-    ignitionTouchBtn.style.color       = ignitionTouchOn ? '#39ff9d' : '#ff4d5e';
-  });
-
-  // touch-button net state — tap to arm/disarm (edge triggers fire in animate loop)
-  let netTouchArmed = false;
-  netTouchBtn.addEventListener('click', () => {
-    netTouchArmed = !netTouchArmed;
-    netTouchBtn.textContent = netTouchArmed ? 'NET: ARMED' : 'NET: READY';
-    netTouchBtn.style.borderColor = netTouchArmed ? '#ffb020' : '#4dd8ff';
-    netTouchBtn.style.color       = netTouchArmed ? '#ffb020' : '#4dd8ff';
-  });
-
-  function updateTouchButtonVisibility(){
-    ignitionTouchBtn.style.display = axis7Available ? 'none' : 'block';
-    // only show net touch button during the net-chase minigame and when axis 6 is absent
-    netTouchBtn.style.display = (netGameActive && !axis6Available) ? 'block' : 'none';
-  }
 
   function getInputs(){
     // reuse the page's gamepad config (cfg) + active gamepad if present
     let r = 0, p = 0, y = 0, t = 0;
 
-    // --- check AXIS 7 for ignition (switch goes -1 → +1 when toggled on) ---
-    // On iOS/Safari the Gamepad API only exposes axes 0-3, so axis 7 will never
-    // appear. When it's absent we fall through to the on-screen touch button.
-    let foundAxis7 = false;
+    // --- check the calibrated IGNITION switch channel (defaults to axis 7,
+    // reassignable via manual override or the calibration wizard) ---
     try {
       const pads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (const pd of pads) {
-        if (pd && pd.axes && pd.axes.length > 7) {
-          ignitionOn = pd.axes[7] > 0.5;
-          foundAxis7 = true;
+        if (pd && window.__fpvCfg && window.__fpvComputeSwitch) {
+          ignitionOn = window.__fpvComputeSwitch(pd, window.__fpvCfg.ignition);
           break;
         }
       }
     } catch(e){}
-    if (foundAxis7 !== axis7Available) {
-      axis7Available = foundAxis7;
-      updateTouchButtonVisibility();
-      // show/hide the iOS warning notice on the axis table page
-      const notice = document.getElementById('axisLimitNotice');
-      if (notice) notice.style.display = axis7Available ? 'none' : 'block';
-    }
-    // if hardware axis absent, use the touch toggle
-    if (!axis7Available) ignitionOn = ignitionTouchOn;
 
     // update ignition OSD label
     if (flyIgnitionLabel) {
@@ -1634,25 +1590,20 @@
       flyIgnitionLabel.style.color = ignitionOn ? '#39ff9d' : '#ff4d5e';
     }
 
-    // --- check AXIS 6 for net launch ---
-    // Same iOS limitation applies. Fall back to touch button or keyboard.
-    let foundAxis6 = false;
+    // --- check the calibrated NET DEPLOY switch channel (defaults to axis 6,
+    // reassignable via manual override or the calibration wizard). Firing
+    // itself (with its cooldown / unlimited-ammo handling) happens in the
+    // animation loop.
     try {
       const pads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (const pd of pads) {
-        if (pd && pd.axes && pd.axes.length > 6) {
-          netDeployed = pd.axes[6] > 0.5;
-          foundAxis6 = true;
+        if (pd && window.__fpvCfg && window.__fpvComputeSwitch) {
+          netDeployed = window.__fpvComputeSwitch(pd, window.__fpvCfg.netDeploy);
           break;
         }
       }
     } catch(e){}
-    if (foundAxis6 !== axis6Available) {
-      axis6Available = foundAxis6;
-      updateTouchButtonVisibility();
-    }
-    if (!axis6Available) netDeployed = netTouchArmed; // touch button drives it when axis absent
-    if (keys['KeyN']) netDeployed = true; // keyboard fallback always honoured
+    if (keys['KeyN']) netDeployed = true; // keyboard fallback when no switch is bound
 
     // no ignition = no power, drone stays still
     if (!ignitionOn) return { r, p, y, t };
@@ -2332,8 +2283,6 @@
     netProjectiles = [];
     if (flyNetLabel) flyNetLabel.style.display = 'none';
     if (flyGameOsd) flyGameOsd.style.display = 'none';
-    netTouchArmed = false;
-    if (netTouchBtn) { netTouchBtn.style.display = 'none'; netTouchBtn.textContent = 'NET: READY'; netTouchBtn.style.borderColor = '#4dd8ff'; netTouchBtn.style.color = '#4dd8ff'; }
   }
 
   function enterFly(droneKey){
@@ -2348,15 +2297,6 @@
     orientation.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI); // face spawn-forward
     kbThrottle = 0;
     ignitionOn = false;
-    ignitionTouchOn = false;
-    ignitionTouchBtn.textContent = 'IGNITION OFF';
-    ignitionTouchBtn.style.borderColor = '#ff4d5e';
-    ignitionTouchBtn.style.color = '#ff4d5e';
-    netTouchArmed = false;
-    netTouchBtn.textContent = 'NET: READY';
-    netTouchBtn.style.borderColor = '#4dd8ff';
-    netTouchBtn.style.color = '#4dd8ff';
-    updateTouchButtonVisibility();
     if (flyIgnitionLabel) { flyIgnitionLabel.textContent = 'IGNITION OFF'; flyIgnitionLabel.style.color = '#ff4d5e'; }
 
     // leaving/skipping the minigame — clear any rogue-drone game state
@@ -2380,7 +2320,7 @@
 
     spawnRogue();
 
-    flyMsg.textContent = 'Chase the rogue drone. Flip the net switch (axis 6 / key N) on to fire one wide, powerful net — flip it off then on again to reload. Each capture brings a tougher rogue.';
+    flyMsg.textContent = 'Chase the rogue drone. Flip your calibrated net deploy switch (or key N) on to fire one wide, powerful net — flip it off then on again to reload. Each capture brings a tougher rogue.';
     setTimeout(() => { if (netGameActive) flyMsg.textContent = ''; }, 5000);
   }
 
